@@ -69,4 +69,16 @@ describe('round scores', () => {
     const single = buildScoreTimeline(records.filter((r) => r.round === 0));
     assert.equal(isRoundBased(single), false);
   });
+
+  it('does not treat overtime after a level game as a second round', () => {
+    const overtime = buildScoreTimeline([
+      ...ticks(6, 0, 1000, 1),
+      ...ticks(8, 0, 2000, 1),
+      ...players(0, 100),
+      ...ticks(6, 1, 20000, 1),
+      ...players(1, 15000),
+    ]);
+    assert.equal(overtime.rounds.length, 2);
+    assert.equal(isRoundBased(overtime), false);
+  });
 });

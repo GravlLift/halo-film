@@ -195,9 +195,13 @@ export async function extractScoreTimeline(
   return buildScoreTimeline(await extractStatRecords(chunkSource), finalScores);
 }
 
-/** Whether the game is played in rounds that each restart the score. */
+/**
+ * Whether the game is played in rounds that each restart the score. Overtime
+ * resets the stats just like a new round does, but follows a level game, so
+ * only rounds that were actually won count.
+ */
 export function isRoundBased(timeline: ScoreTimeline): boolean {
-  return timeline.rounds.length > 1;
+  return timeline.rounds.filter((r) => r.winnerSlot !== undefined).length > 1;
 }
 
 /** Score of a series within the round in progress at `timeMs`; 0 once a new round has reset it. */

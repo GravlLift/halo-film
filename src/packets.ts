@@ -1,4 +1,4 @@
-import { unzlibSync } from "fflate";
+import { unzlibSync } from 'fflate';
 
 export const PACKET_HEADER_SIZE = 16;
 
@@ -16,16 +16,16 @@ export const PacketType = {
 } as const;
 
 const packetTypeNames = new Map<number, string>([
-  [PacketType.Frame, "frame"],
-  [PacketType.ReplicationDataStart, "replicationDataStart"],
-  [PacketType.Keyframe, "keyframe"],
-  [PacketType.Highlights, "highlights"],
-  [PacketType.Type6, "type6"],
-  [PacketType.ChunkEnd, "chunkEnd"],
-  [PacketType.PlayerMetadata, "playerMetadata"],
-  [PacketType.Type9, "type9"],
-  [PacketType.FrameTrailer, "frameTrailer"],
-  [PacketType.BotMetadata, "botMetadata"],
+  [PacketType.Frame, 'frame'],
+  [PacketType.ReplicationDataStart, 'replicationDataStart'],
+  [PacketType.Keyframe, 'keyframe'],
+  [PacketType.Highlights, 'highlights'],
+  [PacketType.Type6, 'type6'],
+  [PacketType.ChunkEnd, 'chunkEnd'],
+  [PacketType.PlayerMetadata, 'playerMetadata'],
+  [PacketType.Type9, 'type9'],
+  [PacketType.FrameTrailer, 'frameTrailer'],
+  [PacketType.BotMetadata, 'botMetadata'],
 ]);
 
 export function packetTypeName(type: number): string {
@@ -44,9 +44,17 @@ export interface FilmPacket {
 }
 
 /** Chunks are zlib streams (header byte 0x78). */
+const inflatedCache = new WeakMap<Uint8Array, Uint8Array>();
 export function inflateChunk(raw: Uint8Array): Uint8Array {
-  return unzlibSync(raw);
+  let result = inflatedCache.get(raw);
+  if (!result) {
+    result = unzlibSync(raw);
+    inflatedCache.set(raw, result);
+  }
+  return result;
 }
+
+const splitCache = new WeakMap<Uint8Array, FilmPacket[]>();
 
 /**
  * Splits an inflated gameplay chunk into packets:
@@ -54,6 +62,8 @@ export function inflateChunk(raw: Uint8Array): Uint8Array {
  * a ChunkEnd packet (type 7).
  */
 export function splitPackets(inflated: Uint8Array): FilmPacket[] {
+  const cached = splitCache.get(inflated);
+  if (cached) return cached;
   const view = new DataView(
     inflated.buffer,
     inflated.byteOffset,
@@ -82,5 +92,6 @@ export function splitPackets(inflated: Uint8Array): FilmPacket[] {
     offset = payloadOffset + size;
     if (type === PacketType.ChunkEnd) break;
   }
+  splitCache.set(inflated, packets);
   return packets;
 }

@@ -99,12 +99,26 @@ export interface MatchReplay extends Replay {
 
 const xuidOf = (playerId: string) => /\d+/.exec(playerId)?.[0];
 
+/** Number of `stage()` calls in `buildReplay`. */
+const BUILD_STAGES = 7;
+
+/** Lets the browser paint before the next synchronous stretch of parsing. */
+const yieldToUi = () => new Promise<void>((resolve) => setTimeout(resolve, 20));
+
 /** Builds a replay from a film's chunks (still compressed, as the API serves them). */
 export async function buildReplay(
   film: FilmManifest,
   chunks: readonly FilmChunkInput[],
   match: FilmMatchStats,
+  onStage?: (stage: string) => void,
 ): Promise<MatchReplay> {
+  let stageNumber = 0;
+  const stage = async (name: string) => {
+    stageNumber += 1;
+    if (!onStage) return;
+    onStage(`${name} (step ${stageNumber}/${BUILD_STAGES})`);
+    await yieldToUi();
+  };
   const { MapVariant, GameVariantCategory: category } = match.MatchInfo;
   const mapId = MapVariant.AssetId;
   const mapName =
@@ -117,6 +131,7 @@ export async function buildReplay(
     return xuid ? [{ xuid, team: p.LastTeamId }] : [];
   });
 
+  await stage('Decoding player positions...');
   const highlightEvents = await readHighlightEvents(
     chunks,
     film.CustomData.FilmMajorVersion,
@@ -128,6 +143,7 @@ export async function buildReplay(
   });
   if (!positions) throw new Error('No player positions found in film');
 
+  await stage('Reading scores and stats...');
   const statRecords = await extractStatRecords(chunks);
   const scoreTimeline = buildScoreTimeline(
     statRecords,
@@ -154,18 +170,22 @@ export async function buildReplay(
         : [];
     }),
   );
+  await stage('Reading player inventories...');
   const inventories = await extractInventories(chunks);
   const inventoryDeltas = await extractInventoryDeltas(
     chunks,
     positions.layout,
     new Set(positions.tracks.map((t) => t.slot)),
   );
+  await stage('Reading weapon fire and damage...');
   const fireEvents = await extractFireEvents(chunks);
   const damageEvents = await extractDamageEvents(
     chunks,
     unitAtPredicate(positions),
   );
+  await stage('Tracing projectiles...');
   const flights = await extractProjectiles(chunks, positions.layout);
+  await stage('Reading objectives...');
 
   const metersToFilm = normalizedPerMeter(mapId) ?? 0;
   const scan =
@@ -207,13 +227,15 @@ export async function buildReplay(
   const zoneInput =
     category === GameVariantCategory.MultiplayerStrongholds
       ? {
-          zones: zoneObjectives.map((o): ZoneShape => ({
-            team: o.team,
-            x: o.x,
-            y: o.y,
-            radius: o.radius,
-            polygon: o.polygon,
-          })),
+          zones: zoneObjectives.map(
+            (o): ZoneShape => ({
+              team: o.team,
+              x: o.x,
+              y: o.y,
+              radius: o.radius,
+              polygon: o.polygon,
+            }),
+          ),
           captures: teamEvents(extractZoneCaptureSlots(statRecords)),
           secures: teamEvents(extractZoneSecureSlots(statRecords)),
         }
@@ -224,13 +246,15 @@ export async function buildReplay(
       ? {
           hills: objectives
             .filter((o) => o.role === 'hill')
-            .map((o): ZoneShape => ({
-              team: o.team,
-              x: o.x,
-              y: o.y,
-              radius: o.radius,
-              polygon: o.polygon,
-            })),
+            .map(
+              (o): ZoneShape => ({
+                team: o.team,
+                x: o.x,
+                y: o.y,
+                radius: o.radius,
+                polygon: o.polygon,
+              }),
+            ),
           control: extractHillControl(statRecords).flatMap(
             ({ slot, points }) => {
               const team = scoreTimeline.teams.find(
@@ -251,6 +275,7 @@ export async function buildReplay(
         }
       : undefined;
 
+  await stage('Building replay...');
   const replay = createReplay(
     positions,
     scoreTimeline,
@@ -300,11 +325,13 @@ export interface LoadFilmOptions {
   /** Chunks fetched at once. */
   concurrency?: number;
   onProgress?: (downloaded: number, total: number) => void;
+  /** Called as each processing step starts, after all chunks are downloaded. */
+  onStage?: (stage: string) => void;
 }
 
 /** Downloads a film's chunks and builds its replay. */
 export async function loadFilm(options: LoadFilmOptions): Promise<MatchReplay> {
-  const { film, match, fetchChunk, onProgress } = options;
+  const { film, match, fetchChunk, onProgress, onStage } = options;
   const { Chunks } = film.CustomData;
   const chunks = new Array<FilmChunkInput>(Chunks.length);
   const pending = Chunks.map((chunk, i) => ({ chunk, i }));
@@ -334,5 +361,5 @@ export async function loadFilm(options: LoadFilmOptions): Promise<MatchReplay> {
       worker,
     ),
   );
-  return buildReplay(film, chunks, match);
+  return buildReplay(film, chunks, match, onStage);
 }

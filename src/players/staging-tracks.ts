@@ -1,4 +1,4 @@
-import type { SlotTrack } from './positions';
+import type { SlotTrack } from '../decoders/positions';
 
 /** Consecutive track starts closer than this belong to the same wave. */
 const WAVE_GAP_MS = 2000;

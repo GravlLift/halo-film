@@ -1,27 +1,27 @@
-import { BitReader } from './bit-reader';
+import { BitReader } from '../core/bit-reader';
 import {
   findRecordCandidates,
   findBipedSlots,
   type RecordCandidate,
-} from './biped-records';
+} from '../core/biped-records';
 import {
   detectI0Layout,
   flipProfile,
   readProfileSample,
   type I0Layout,
   type ProfileSample,
-} from './i0-layout';
+} from '../core/i0-layout';
 import {
   CHUNK_TYPE_GAMEPLAY,
   CHUNK_TYPE_HIGHLIGHTS,
   type FilmChunkInput,
   type FilmChunkSource,
-} from './film-input';
-import { inflateChunk, PacketType, splitPackets } from './packets';
-import { readBipedComponents, type BipedComponents } from './components';
-import { linkLives, type Actor } from './link-lives';
-import { dropStagingTracks } from './staging-tracks';
-import { bindPlayers, type PlayerIdentity } from './bind-players';
+} from '../core/film-input';
+import { inflateChunk, PacketType, splitPackets } from '../core/packets';
+import { readBipedComponents, type BipedComponents } from '../core/components';
+import { linkLives, type Actor } from '../players/link-lives';
+import { dropStagingTracks } from '../players/staging-tracks';
+import { bindPlayers, type PlayerIdentity } from '../players/bind-players';
 import { parseHighlightEvents, type HighlightEvent } from './highlight-events';
 
 export interface PositionSample extends BipedComponents {

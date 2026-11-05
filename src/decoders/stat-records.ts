@@ -1,5 +1,5 @@
-import { PacketType, inflateChunk, splitPackets } from "./packets";
-import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from "./film-input";
+import { PacketType, inflateChunk, splitPackets } from "../core/packets";
+import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from "../core/film-input";
 
 /**
  * Entity "stat records" found in frame packets: sparse lists of score

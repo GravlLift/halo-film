@@ -1,4 +1,4 @@
-import type { StatRecord } from './stat-records';
+import type { StatRecord } from '../decoders/stat-records';
 
 /** Stat component of a team's zone-capture counter; its `b` channel counts captures. */
 const ZONE_CAPTURE_COMPONENT = 20;

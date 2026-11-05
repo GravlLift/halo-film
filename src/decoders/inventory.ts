@@ -1,12 +1,12 @@
-import { PacketType, inflateChunk, splitPackets } from './packets';
-import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from './film-input';
+import { PacketType, inflateChunk, splitPackets } from '../core/packets';
+import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from '../core/film-input';
 import {
   BIPED_TYPE_INDEX,
   bitsAt,
   walkKeyframe,
   type KeyframeRecord,
-} from './keyframe-world';
-import { WEAPON_FAMILY_NAMES, isGrenadeFamily } from './weapon-catalog';
+} from '../core/keyframe-world';
+import { WEAPON_FAMILY_NAMES, isGrenadeFamily } from '../core/weapon-catalog';
 
 /**
  * Per-biped inventory read from keyframes, ported from LevelUp's

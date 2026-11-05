@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { bindPlayers } from './bind-players';
-import type { HighlightEvent } from './highlight-events';
-import type { SlotTrack } from './positions';
+import type { HighlightEvent } from '../decoders/highlight-events';
+import type { SlotTrack } from '../decoders/positions';
 
 const track = (slot: number, startMs: number, endMs: number): SlotTrack => ({
   slot,

@@ -26,18 +26,23 @@ Sample matches: `5a997c10-5ff3-42bf-99ca-e81bce97ef10` (8 players, use this one)
 
 ## Code map (`libs/halo-film/src/`)
 
-| File               | Purpose                                                                                                 |
-| ------------------ | ------------------------------------------------------------------------------------------------------- |
-| `bit-reader.ts`    | MSB-first bit reader (`bitAt`, `peek`, `read`, `peekLittleEndianBytes`)                                 |
-| `packets.ts`       | `inflateChunk` (zlib), `splitPackets`, `PacketType`                                                     |
-| `roster.ts`        | `parseRoster`: xuids at arbitrary bit offsets, gamertag UTF-16 152 bits + 16-bit terminator before xuid |
-| `registry.ts`      | `parseRegistry`: ECS component registry (chunk 0)                                                       |
-| `parse-film.ts`    | `parseFilm` -> film JSON                                                                                |
-| `biped-records.ts` | bit-scan for biped record headers; `findBipedSlots`                                                     |
-| `i0-layout.ts`     | detects position-block axis widths from bit flip-rate sawtooth                                          |
-| `positions.ts`     | `extractPositions` / `extractFilmPositions` (tracks + actors)                                           |
-| `link-lives.ts`    | `linkLives`: chains lives (slots) into anonymous actors                                                 |
-| `film.test.ts`     | tests (bit reader, packets, roster, link-lives, slots, integration on sample film)                      |
+| File                    | Purpose                                                                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------- |
+| `core/bit-reader.ts`    | MSB-first bit reader (`bitAt`, `peek`, `read`, `peekLittleEndianBytes`)                                 |
+| `core/packets.ts`       | `inflateChunk` (zlib), `splitPackets`, `PacketType`                                                     |
+| `decoders/roster.ts`    | `parseRoster`: xuids at arbitrary bit offsets, gamertag UTF-16 152 bits + 16-bit terminator before xuid |
+| `core/registry.ts`      | `parseRegistry`: ECS component registry (chunk 0)                                                       |
+| `parse-film.ts`         | `parseFilm` -> film JSON                                                                                |
+| `core/biped-records.ts` | bit-scan for biped record headers; `findBipedSlots`                                                     |
+| `core/i0-layout.ts`     | detects position-block axis widths from bit flip-rate sawtooth                                          |
+| `decoders/positions.ts` | `extractPositions` / `extractFilmPositions` (tracks + actors)                                           |
+| `players/link-lives.ts` | `linkLives`: chains lives (slots) into anonymous actors                                                 |
+| `film.test.ts`          | tests (bit reader, packets, roster, link-lives, slots, integration on sample film)                      |
+
+Folders: `core/` (bit reader, packets, registry, record and layout primitives), `decoders/` (per-packet decoders:
+positions, damage, fire, stat records, inventories, projectiles, world objects, roster, highlights), `players/`
+(binding lives to players) and `timeline/` (derived state: score, zones, hills, flags, player stats, `replay`).
+Entry points stay at the top level.
 
 ## Format facts (verified)
 
@@ -75,7 +80,7 @@ yields exactly 8 actors, ~130 respawns with a 10.1 s gap. Caveats:
    to the film), then disambiguate using kill/medal events in the film (LevelUp: damage records are type-0 packets with
    `payload[0]==0xd2`, attacker = R(5)>>1 at +0x0c; kill-feed events carry gamertag+xuid inline).
 2. Investigate death-count mismatch (spurious/split tracks); add outlier filtering (isolated samples, teleports; LevelUp `DropIsolated`/`DropTeleports`).
-3. World coordinates: per-map bounds (manual `--bounds`/lookup table), then meters = q * extent / 2^W.
+3. World coordinates: per-map bounds (manual `--bounds`/lookup table), then meters = q \* extent / 2^W.
 4. Decode further components after i0: i1 velocity, i2 aim, i4 health, i5 shield (see LevelUp `offline_biped.go`).
 5. Tests for `i0-layout` and `findRecordCandidates` with synthetic bit data; integration test on match 5a99… (layout 15/15/17,
    slots 512-519 near t≈39 s, 8 actors).

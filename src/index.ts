@@ -16,11 +16,11 @@ export type {
   ReplayFire,
   ReplayGrave,
   ReplayPoint,
-} from './replay';
-export type { PlayerStatSnapshot } from './player-stats';
-export type { ZoneState } from './zone-state';
-export type { HillState, HillTeamProgress } from './hill-state';
-export type { ProjectileFlight, ProjectilePoint } from './projectiles';
+} from './timeline/replay';
+export type { PlayerStatSnapshot } from './timeline/player-stats';
+export type { ZoneState } from './timeline/zone-state';
+export type { HillState, HillTeamProgress } from './timeline/hill-state';
+export type { ProjectileFlight, ProjectilePoint } from './decoders/projectiles';
 export type {
   MapBackground,
   MapObjective,
@@ -31,6 +31,13 @@ export type {
   FilmChunkInput,
   FilmChunkSource,
   FilmMetadata,
-} from './film-input';
+} from './core/film-input';
 export { parseFilm } from './parse-film';
-export { extractFilmPositions, readHighlightEvents } from './positions';
+export { inflateChunk, PacketType, splitPackets } from './core/packets';
+export type { FilmPacket } from './core/packets';
+export type { FireEvent } from './decoders/fire-events';
+export {
+  extractFilmPositions,
+  extractPositions,
+  readHighlightEvents,
+} from './decoders/positions';

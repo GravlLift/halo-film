@@ -1,7 +1,7 @@
-import { PacketType, inflateChunk, splitPackets } from './packets';
-import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from './film-input';
-import { bitsAt } from './keyframe-world';
-import { WEAPON_FAMILY_NAMES } from './weapon-catalog';
+import { PacketType, inflateChunk, splitPackets } from '../core/packets';
+import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from '../core/film-input';
+import { bitsAt } from '../core/keyframe-world';
+import { WEAPON_FAMILY_NAMES } from '../core/weapon-catalog';
 
 /**
  * `action_weapon_fire` events (event type 36) from frame packets, after

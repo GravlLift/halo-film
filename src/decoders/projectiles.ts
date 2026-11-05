@@ -1,7 +1,7 @@
-import { CHUNK_TYPE_GAMEPLAY, CHUNK_TYPE_REGISTRY } from './film-input';
-import type { FilmChunkSource } from './film-input';
-import { bitsAt } from './keyframe-world';
-import { inflateChunk, PacketType, splitPackets } from './packets';
+import { CHUNK_TYPE_GAMEPLAY, CHUNK_TYPE_REGISTRY } from '../core/film-input';
+import type { FilmChunkSource } from '../core/film-input';
+import { bitsAt } from '../core/keyframe-world';
+import { inflateChunk, PacketType, splitPackets } from '../core/packets';
 import {
   archetypeComponentCount,
   readWorldObjectSamples,
@@ -11,8 +11,8 @@ import type { WorldObjectSample } from './world-object-births';
 /** Archetype of thrown and launched projectiles (grenades, rockets, plasma). */
 export const PROJECTILE_TYPE_INDEX = 41;
 /** Projectile slot of detonation reference `idx` is `PROJECTILE_SLOT_BASE + idx`. */
-const PROJECTILE_SLOT_BASE = 0x400;
-const PROJECTILE_SLOT_COUNT = 256;
+export const PROJECTILE_SLOT_BASE = 0x400;
+export const PROJECTILE_SLOT_COUNT = 256;
 /** A projectile slot silent for longer than this has been reused by a new projectile. */
 const PROJECTILE_GAP_MS = 250;
 const MIN_FLIGHT_POINTS = 3;
@@ -20,7 +20,7 @@ const MIN_FLIGHT_POINTS = 3;
 const UNSEEN_DETONATION_MS = 500;
 /** Detonations are looked up from just before to well after the last replicated position. */
 const DETONATION_BEFORE_MS = 500;
-const DETONATION_AFTER_MS = 4000;
+export const DETONATION_AFTER_MS = 4000;
 /** Per-axis agreement (fraction of the bounds) between a detonation and its flight. */
 const DETONATION_TOLERANCE = 0.003;
 

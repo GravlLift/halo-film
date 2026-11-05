@@ -1,10 +1,10 @@
-import { BitReader } from './bit-reader';
-import { findRecordCandidates } from './biped-records';
-import { readBipedComponents, WEAPON_RESERVE_BITS } from './components';
-import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from './film-input';
-import type { I0Layout } from './i0-layout';
-import { WEAPON_FAMILY_NAMES, isGrenadeFamily } from './weapon-catalog';
-import { PacketType, inflateChunk, splitPackets } from './packets';
+import { BitReader } from '../core/bit-reader';
+import { findRecordCandidates } from '../core/biped-records';
+import { readBipedComponents, WEAPON_RESERVE_BITS } from '../core/components';
+import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from '../core/film-input';
+import type { I0Layout } from '../core/i0-layout';
+import { WEAPON_FAMILY_NAMES, isGrenadeFamily } from '../core/weapon-catalog';
+import { PacketType, inflateChunk, splitPackets } from '../core/packets';
 
 /**
  * Inventory values that ride in frame (delta) packets, so they refresh between

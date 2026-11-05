@@ -4,7 +4,7 @@ import {
   SKULL_IDENTITY,
   type WorldObjectDrop,
   type WorldObjectScan,
-} from './world-object-births';
+} from '../decoders/world-object-births';
 
 /** A flag that rests longer than this without a position update has stopped moving. */
 const PATH_GAP_MS = 2000;

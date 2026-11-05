@@ -1,4 +1,4 @@
-import { BitReader } from "./bit-reader";
+import { BitReader } from "../core/bit-reader";
 
 export interface FilmPlayer {
   /** Per-match slot index (5 bits preceding the player's first xuid). */

@@ -2,16 +2,16 @@ import {
   CHUNK_TYPE_REGISTRY,
   type FilmChunkSource,
   type FilmMetadata,
-} from "./film-input";
+} from "./core/film-input";
 import {
   inflateChunk,
   packetTypeName,
   PacketType,
   splitPackets,
   type FilmPacket,
-} from "./packets";
-import { parseRegistry, type ComponentRegistry } from "./registry";
-import { parseRoster, type FilmPlayer } from "./roster";
+} from "./core/packets";
+import { parseRegistry, type ComponentRegistry } from "./core/registry";
+import { parseRoster, type FilmPlayer } from "./decoders/roster";
 
 export interface ParsedPacket {
   type: number;

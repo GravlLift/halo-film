@@ -1,4 +1,4 @@
-import { inflateChunk } from "./packets";
+import { inflateChunk } from "../core/packets";
 
 /**
  * The highlight-events chunk (manifest chunk type 3) lists every kill, death,

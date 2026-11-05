@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import type { SlotTrack } from './positions';
+import type { SlotTrack } from '../decoders/positions';
 import { dropStagingTracks } from './staging-tracks';
 
 function track(slot: number, startMs: number, endMs: number): SlotTrack {

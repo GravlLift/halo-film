@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { readKeyframeInventories } from './inventory';
-import { walkKeyframe } from './keyframe-world';
-import { WEAPON_FAMILY_NAMES } from './weapon-catalog';
+import { walkKeyframe } from '../core/keyframe-world';
+import { WEAPON_FAMILY_NAMES } from '../core/weapon-catalog';
 
 function bitsToBytes(bits: number[]): Uint8Array {
   const bytes = new Uint8Array(Math.ceil(bits.length / 8));

@@ -1,6 +1,6 @@
-import type { FilmChunkSource } from './film-input';
+import type { FilmChunkSource } from '../core/film-input';
 import { realRounds, strictlyIncreasing, type ScorePoint } from './score';
-import { extractStatRecords, type StatRecord } from './stat-records';
+import { extractStatRecords, type StatRecord } from '../decoders/stat-records';
 
 const FIRST_PLAYER_SLOT = 10;
 const LAST_PLAYER_SLOT = 24;

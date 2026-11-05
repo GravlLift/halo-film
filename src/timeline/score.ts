@@ -1,5 +1,5 @@
-import type { FilmChunkSource } from './film-input';
-import { extractStatRecords, type StatRecord } from './stat-records';
+import type { FilmChunkSource } from '../core/film-input';
+import { extractStatRecords, type StatRecord } from '../decoders/stat-records';
 
 /** Stat component carrying the mode score as displayed (A channel). */
 const MODE_SCORE_COMPONENT = 0;

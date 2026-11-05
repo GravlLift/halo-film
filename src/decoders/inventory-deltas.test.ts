@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { BitReader } from './bit-reader';
+import { BitReader } from '../core/bit-reader';
 import { readInventoryDelta } from './inventory-deltas';
 
 function push(bits: number[], value: number, count: number) {

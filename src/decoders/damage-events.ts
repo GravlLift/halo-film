@@ -1,6 +1,6 @@
-import { PacketType, inflateChunk, splitPackets } from './packets';
-import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from './film-input';
-import { bitsAt } from './keyframe-world';
+import { PacketType, inflateChunk, splitPackets } from '../core/packets';
+import { CHUNK_TYPE_GAMEPLAY, type FilmChunkSource } from '../core/film-input';
+import { bitsAt } from '../core/keyframe-world';
 import type { LinkedFilmPositions } from './positions';
 
 /**

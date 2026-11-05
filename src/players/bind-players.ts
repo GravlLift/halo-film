@@ -1,6 +1,6 @@
-import type { HighlightEvent } from './highlight-events';
+import type { HighlightEvent } from '../decoders/highlight-events';
 import type { Actor, Life } from './link-lives';
-import type { SlotTrack } from './positions';
+import type { SlotTrack } from '../decoders/positions';
 
 /** A life ends within this long of the death event that names its player. */
 const DEATH_MATCH_WINDOW_MS = 250;

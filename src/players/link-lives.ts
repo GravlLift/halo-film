@@ -1,4 +1,4 @@
-import type { SlotTrack } from "./positions";
+import type { SlotTrack } from "../decoders/positions";
 
 export interface Life {
   slot: number;

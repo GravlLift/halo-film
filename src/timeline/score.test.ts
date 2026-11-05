@@ -6,7 +6,7 @@ import {
   roundScoreAt,
   roundsWonAt,
 } from './score';
-import type { StatRecord } from './stat-records';
+import type { StatRecord } from '../decoders/stat-records';
 
 const record = (
   slot: number,

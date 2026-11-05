@@ -1,8 +1,8 @@
-import { extractDamageEvents, unitAtPredicate } from './damage-events';
-import type { FilmChunkInput } from './film-input';
-import { extractFireEvents } from './fire-events';
-import { extractInventories } from './inventory';
-import { extractInventoryDeltas } from './inventory-deltas';
+import { extractDamageEvents, unitAtPredicate } from './decoders/damage-events';
+import type { FilmChunkInput } from './core/film-input';
+import { extractFireEvents } from './decoders/fire-events';
+import { extractInventories } from './decoders/inventory';
+import { extractInventoryDeltas } from './decoders/inventory-deltas';
 import {
   filmLayoutFor,
   GameVariantCategory,
@@ -14,24 +14,24 @@ import type {
   MapBackground,
   MapObjective,
 } from '@gravllift/halo-infinite-maps';
-import { extractCarryEvents } from './carry-events';
-import { buildPlayerStats } from './player-stats';
-import { extractFilmPositions, readHighlightEvents } from './positions';
-import { extractProjectiles } from './projectiles';
-import type { ProjectileFlight } from './projectiles';
-import { createReplay } from './replay';
-import { extractHillControl, type HillInput } from './hill-state';
+import { extractCarryEvents } from './decoders/carry-events';
+import { buildPlayerStats } from './timeline/player-stats';
+import { extractFilmPositions, readHighlightEvents } from './decoders/positions';
+import { extractProjectiles } from './decoders/projectiles';
+import type { ProjectileFlight } from './decoders/projectiles';
+import { createReplay } from './timeline/replay';
+import { extractHillControl, type HillInput } from './timeline/hill-state';
 import {
   extractZoneCaptureSlots,
   extractZoneSecureSlots,
   type ZoneCapture,
   type ZoneShape,
-} from './zone-state';
-import type { ObjectiveCarries, Replay } from './replay';
-import { buildScoreTimeline } from './score';
-import { extractStatRecords } from './stat-records';
-import { buildFlagObjects, buildSkullObject } from './flag-objects';
-import { extractWorldObjectScan } from './world-object-births';
+} from './timeline/zone-state';
+import type { ObjectiveCarries, Replay } from './timeline/replay';
+import { buildScoreTimeline } from './timeline/score';
+import { extractStatRecords } from './decoders/stat-records';
+import { buildFlagObjects, buildSkullObject } from './timeline/flag-objects';
+import { extractWorldObjectScan } from './decoders/world-object-births';
 
 const DEFAULT_CONCURRENCY = 6;
 /** How near a biped must be to an objective to pick it up. */

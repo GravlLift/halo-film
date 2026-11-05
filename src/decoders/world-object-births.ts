@@ -1,7 +1,7 @@
-import { CHUNK_TYPE_GAMEPLAY, CHUNK_TYPE_REGISTRY } from './film-input';
-import type { FilmChunkSource } from './film-input';
-import { bitsAt, walkKeyframe } from './keyframe-world';
-import { inflateChunk, PacketType, splitPackets } from './packets';
+import { CHUNK_TYPE_GAMEPLAY, CHUNK_TYPE_REGISTRY } from '../core/film-input';
+import type { FilmChunkSource } from '../core/film-input';
+import { bitsAt, walkKeyframe } from '../core/keyframe-world';
+import { inflateChunk, PacketType, splitPackets } from '../core/packets';
 
 /** Archetype of ground weapons, which is also what flags and skulls are. */
 export const WORLD_OBJECT_TYPE_INDEX = 42;

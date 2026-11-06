@@ -23,6 +23,53 @@ const death = (xuid: string, timeMs: number): HighlightEvent => ({
   medalType: 0,
 });
 
+test('ignores a spurious roster entry sharing a known player index', () => {
+  const tracks = [track(1, 0, 10_000)];
+  const owners = {
+    roster: [
+      { playerIndex: 2, xuid: 'a' },
+      { playerIndex: 2, xuid: 'spurious' },
+    ],
+    creations: [{ timeMs: 0, slot: 1, generation: 1, participantIndex: 2 }],
+  };
+  const result = bindPlayers(tracks, [death('a', 10_000)], [], owners);
+  assert.equal(result.ownedLives, 1);
+  assert.equal(result.actors[0].xuid, 'a');
+});
+
+test('keeps an unambiguous roster player absent from the event feed', () => {
+  const owners = {
+    roster: [{ playerIndex: 2, xuid: 'a' }],
+    creations: [{ timeMs: 0, slot: 1, generation: 1, participantIndex: 2 }],
+  };
+  const result = bindPlayers(
+    [track(1, 0, 10_000)],
+    [death('b', 10_000)],
+    [],
+    owners,
+  );
+  assert.equal(result.ownedLives, 1);
+  assert.equal(result.actors[0].xuid, 'a');
+});
+
+test('excludes uncreated tracks outside the keyframe biped band', () => {
+  const owners = {
+    roster: [{ playerIndex: 0, xuid: 'a' }],
+    creations: [{ timeMs: 0, slot: 1, generation: 1, participantIndex: 0 }],
+    bipedSlotBand: new Set([1, 2]),
+  };
+  const result = bindPlayers(
+    [track(1, 0, 10_000), track(100, 11_000, 20_000)],
+    [death('a', 10_000)],
+    [],
+    owners,
+  );
+  assert.deepEqual(
+    result.actors[0].lives.map((life) => life.slot),
+    [1],
+  );
+});
+
 test('a body belongs to the owner named in its creation, whatever the timing', () => {
   // Slot 3 starts 1.6 s after B died and 3.6 s after A died, matching no respawn delay;
   // its creation record names B.

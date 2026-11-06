@@ -3,6 +3,7 @@ import type { FilmChunkSource } from '../core/film-input';
 import { bitsAt, BIPED_TYPE_INDEX } from '../core/keyframe-world';
 import { inflateChunk, PacketType, splitPackets } from '../core/packets';
 import { parseRoster, type FilmPlayer } from './roster';
+import { keyframeSlotBand } from './world-object-births';
 
 const NEW_HEADER_BITS = 24;
 const VERSION = 13;
@@ -63,12 +64,14 @@ export interface BipedCreations {
   creations: BipedCreation[];
   /** The players listed in the film, with the participant index each owns. */
   roster: FilmPlayer[];
+  bipedSlotBand?: ReadonlySet<number>;
 }
 
 export async function extractBipedCreations(
   chunkSource: FilmChunkSource,
 ): Promise<BipedCreations> {
   const creations: BipedCreation[] = [];
+  const keyframes: Uint8Array[] = [];
   let roster: FilmPlayer[] = [];
   let baseMicros: number | null = null;
   for await (const chunk of chunkSource) {
@@ -78,6 +81,7 @@ export async function extractBipedCreations(
       if (packet.type === PacketType.PlayerMetadata && roster.length === 0) {
         roster = parseRoster(packet.payload);
       }
+      if (packet.type === PacketType.Keyframe) keyframes.push(packet.payload);
       if (packet.type !== PacketType.Frame) continue;
       creations.push(
         ...readBipedCreations(
@@ -87,5 +91,10 @@ export async function extractBipedCreations(
       );
     }
   }
-  return { creations, roster };
+  const bipedSlotBand = keyframeSlotBand(keyframes, BIPED_TYPE_INDEX);
+  return {
+    creations,
+    roster,
+    bipedSlotBand: bipedSlotBand.size > 0 ? bipedSlotBand : undefined,
+  };
 }

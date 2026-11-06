@@ -52,6 +52,8 @@ export interface ReplayPoint {
   z: number;
   /** Look direction in degrees, atan2(y, x) convention on the normalized plane. */
   aimYawDeg?: number;
+  /** Body facing when available, in the same convention as aim. */
+  facingYawDeg?: number;
   aimPitchDeg?: number;
   /** Fractions; shield above 1 is overshield. Undefined until first seen. */
   health?: number;
@@ -85,6 +87,7 @@ interface LifeSamples {
   ys: number[];
   zs: number[];
   yaws: (number | undefined)[];
+  facingYaws: (number | undefined)[];
   pitches: (number | undefined)[];
   healths: (number | undefined)[];
   shields: (number | undefined)[];
@@ -496,6 +499,7 @@ export function createReplay(
         ys: samples.map((s) => s.normalized[1]),
         zs: samples.map((s) => s.normalized[2]),
         yaws: holdLast(samples.map((s) => s.aimYawDeg)),
+        facingYaws: holdLast(samples.map((s) => s.facingYawDeg)),
         pitches: holdLast(samples.map((s) => s.aimPitchDeg)),
         healths: holdLast(samples.map((s) => s.health)),
         shields: holdLast(samples.map((s) => s.shield)),
@@ -532,7 +536,7 @@ export function createReplay(
     const { times } = life;
     if (timeMs < times[0] || timeMs > times[times.length - 1]) return null;
     const next = lowerBound(times, timeMs);
-    const prev = Math.max(0, next - 1);
+    const prev = times[next] === timeMs ? next : Math.max(0, next - 1);
     const span = times[next] - times[prev];
     const t =
       span > 0 && span <= MAX_INTERPOLATION_GAP_MS
@@ -547,6 +551,7 @@ export function createReplay(
       y: lerp(life.ys),
       z: lerp(life.zs),
       aimYawDeg: life.yaws[prev],
+      facingYawDeg: life.facingYaws[prev],
       aimPitchDeg: life.pitches[prev],
       health: life.healths[prev],
       shield: life.shields[prev],
@@ -720,19 +725,23 @@ export function createReplay(
         ...slotDeltas
           .slice(0, upperBound(slotDeltas, until))
           .filter((d) => d.timeMs > latest.timeMs)
-          .map((delta): SlotEvent => ({
-            timeMs: delta.timeMs,
-            kind: 'delta',
-            delta,
-          })),
+          .map(
+            (delta): SlotEvent => ({
+              timeMs: delta.timeMs,
+              kind: 'delta',
+              delta,
+            }),
+          ),
         ...fires
           .slice(0, lastIndex + 1)
           .filter((f) => f.timeMs > latest.timeMs)
-          .map((f): SlotEvent => ({
-            timeMs: f.timeMs,
-            kind: 'fire',
-            family: f.family,
-          })),
+          .map(
+            (f): SlotEvent => ({
+              timeMs: f.timeMs,
+              kind: 'fire',
+              family: f.family,
+            }),
+          ),
       ].sort(
         (a, b) =>
           a.timeMs - b.timeMs ||

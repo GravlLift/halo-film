@@ -5,6 +5,7 @@ import { extractInventories } from './decoders/inventory';
 import { extractInventoryDeltas } from './decoders/inventory-deltas';
 import {
   filmLayoutFor,
+  filmWorldBoundsFor,
   GameVariantCategory,
   mapBackgroundFor,
   mapObjectivesFor,
@@ -145,6 +146,7 @@ export async function buildReplay(
     players,
     bipedOwners: await extractBipedCreations(chunks),
     layout: filmLayoutFor(mapId),
+    worldBounds: filmWorldBoundsFor(mapId),
   });
   if (!positions) throw new Error('No player positions found in film');
 

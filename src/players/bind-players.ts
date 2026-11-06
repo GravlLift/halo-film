@@ -39,6 +39,7 @@ export interface BipedOwners {
   creations: readonly BipedCreation[];
   /** Participant index of each player, as listed in the film. */
   roster: readonly { playerIndex: number; xuid: string }[];
+  bipedSlotBand?: ReadonlySet<number>;
 }
 
 export interface BindResult {
@@ -68,9 +69,21 @@ export function bindPlayers(
   owners?: BipedOwners,
 ): BindResult {
   const deaths = events.filter((e) => e.type === 'death');
-  const lives = lifeSpans(tracks);
+  const creationSlots = new Set(
+    owners?.creations.map((creation) => creation.slot),
+  );
+  const lives = lifeSpans(tracks).filter(
+    (life) =>
+      !owners?.bipedSlotBand ||
+      owners.bipedSlotBand.has(life.slot) ||
+      creationSlots.has(life.slot),
+  );
   const ends = lives.map((l) => l.endMs);
-  const owner = ownersFromCreations(lives, owners);
+  const knownXuids = new Set([
+    ...events.map((event) => event.xuid),
+    ...players.map((player) => player.xuid),
+  ]);
+  const owner = ownersFromCreations(lives, owners, knownXuids);
   const ownedLives = owner.size;
 
   let clockOffsetMs = 0;
@@ -191,10 +204,26 @@ export function bindPlayers(
 function ownersFromCreations(
   lives: readonly Life[],
   owners: BipedOwners | undefined,
+  knownXuids: ReadonlySet<string>,
 ): Map<Life, string> {
   const owner = new Map<Life, string>();
   if (!owners) return owner;
-  const xuidOf = new Map(owners.roster.map((p) => [p.playerIndex, p.xuid]));
+  const candidates = new Map<number, Set<string>>();
+  for (const player of owners.roster) {
+    const xuids = candidates.get(player.playerIndex) ?? new Set<string>();
+    xuids.add(player.xuid);
+    candidates.set(player.playerIndex, xuids);
+  }
+  const xuidOf = new Map<number, string>();
+  for (const [index, xuids] of candidates) {
+    const matches =
+      xuids.size === 1
+        ? [...xuids]
+        : [...xuids].filter((xuid) => knownXuids.has(xuid));
+    if (matches.length === 1) {
+      xuidOf.set(index, matches[0]);
+    }
+  }
   for (const life of lives) {
     // A slot can be reused; the creation that counts is the latest before the life began.
     const creation = owners.creations

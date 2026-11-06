@@ -27,6 +27,10 @@ import {
   type PlayerIdentity,
 } from '../players/bind-players';
 import { parseHighlightEvents, type HighlightEvent } from './highlight-events';
+import {
+  readKeyframeBipedPositions,
+  type KeyframeBipedPosition,
+} from './keyframe-positions';
 
 export interface PositionSample extends BipedComponents {
   timeMs: number;
@@ -34,6 +38,8 @@ export interface PositionSample extends BipedComponents {
   q: [number, number, number];
   /** q / 2^width, in [0, 1): the position as a fraction of the map's bounding box. */
   normalized: [number, number, number];
+  /** Body facing when known; distinct from the player's aim. */
+  facingYawDeg?: number;
 }
 
 export interface SlotTrack {
@@ -82,6 +88,10 @@ export interface ExtractOptions {
    * index wider than one bit (Live Fire's is two) and folds it into the X field.
    */
   layout?: I0Layout;
+  worldBounds?: {
+    min: readonly [number, number, number];
+    max: readonly [number, number, number];
+  };
   /** Death feed from `readHighlightEvents`; enables binding lives to real players. */
   highlightEvents?: readonly HighlightEvent[];
   /** Roster with teams, used for names and team ids. */
@@ -111,7 +121,7 @@ export async function extractFilmPositions(
   chunkSource: FilmChunkSource,
   options: ExtractOptions = {},
 ): Promise<LinkedFilmPositions | null> {
-  const raw = await extractPositions(chunkSource, options.layout);
+  const raw = await extractPositions(chunkSource, options.layout, options);
   if (!raw) return null;
   const positions = { ...raw, tracks: dropStagingTracks(raw.tracks) };
   const events = options.highlightEvents ?? [];
@@ -136,8 +146,15 @@ export async function extractFilmPositions(
 export async function extractPositions(
   chunkSource: FilmChunkSource,
   knownLayout?: I0Layout,
+  initialOptions?: Pick<
+    ExtractOptions,
+    'worldBounds' | 'bipedOwners' | 'highlightEvents'
+  >,
 ): Promise<FilmPositions | null> {
   const baseMicros: { value: number | null } = { value: null };
+  let initialKeyframe:
+    | { timeMs: number; positions: KeyframeBipedPosition[] }
+    | undefined;
 
   // Pass 1: per chunk, find the biped slot set (slots migrate as players
   // respawn, so it is local in time) and collect samples for layout detection.
@@ -153,7 +170,25 @@ export async function extractPositions(
   const profileSamples: ProfileSample[] = [];
   for await (const chunk of chunkSource) {
     if (chunk.chunkType !== CHUNK_TYPE_GAMEPLAY) continue;
-    const frames = loadFrames(chunk, baseMicros).map((frame) => ({
+    const loaded = loadFrames(chunk, baseMicros);
+    if (
+      !initialKeyframe &&
+      initialOptions?.worldBounds &&
+      initialOptions.bipedOwners
+    ) {
+      for (const packet of splitPackets(inflateChunk(chunk.data))) {
+        if (packet.type !== PacketType.Keyframe || baseMicros.value === null)
+          continue;
+        const positions = readKeyframeBipedPositions(packet.payload);
+        if (positions.length === 0) continue;
+        initialKeyframe = {
+          timeMs: (packet.timestampMicros - baseMicros.value) / 1000,
+          positions,
+        };
+        break;
+      }
+    }
+    const frames = loaded.map((frame) => ({
       timeMs: frame.timeMs,
       reader: new BitReader(frame.payload),
       candidates: findRecordCandidates(frame.payload),
@@ -220,6 +255,21 @@ export async function extractPositions(
     }
   }
 
+  if (
+    initialKeyframe &&
+    initialOptions?.worldBounds &&
+    initialOptions.bipedOwners
+  ) {
+    seedInitialKeyframe(
+      tracks,
+      initialKeyframe,
+      layout,
+      initialOptions.worldBounds,
+      initialOptions.bipedOwners,
+      initialOptions.highlightEvents ?? [],
+    );
+  }
+
   return {
     layout,
     flipRates: rates,
@@ -227,4 +277,67 @@ export async function extractPositions(
       .sort((a, b) => a[0] - b[0])
       .map(([slot, samples]) => ({ slot, samples })),
   };
+}
+
+export function seedInitialKeyframe(
+  tracks: Map<number, PositionSample[]>,
+  keyframe: { timeMs: number; positions: readonly KeyframeBipedPosition[] },
+  layout: I0Layout,
+  bounds: NonNullable<ExtractOptions['worldBounds']>,
+  owners: BipedOwners,
+  events: readonly HighlightEvent[],
+): void {
+  for (const position of keyframe.positions) {
+    const samples = tracks.get(position.slot);
+    if (!samples?.length || samples[0].timeMs <= keyframe.timeMs) continue;
+    const creation = owners.creations
+      .filter(
+        (entry) =>
+          entry.slot === position.slot && entry.timeMs <= samples[0].timeMs,
+      )
+      .sort((a, b) => b.timeMs - a.timeMs)[0];
+    if (
+      !creation ||
+      creation.generation !== position.generation ||
+      creation.timeMs > keyframe.timeMs
+    )
+      continue;
+    const xuids = new Set(
+      owners.roster
+        .filter((player) => player.playerIndex === creation.participantIndex)
+        .map((player) => player.xuid),
+    );
+    if (
+      events.some(
+        (event) =>
+          event.type === 'death' &&
+          xuids.has(event.xuid) &&
+          event.timeMs >= keyframe.timeMs - 5000 &&
+          event.timeMs <= samples[0].timeMs + 5000,
+      )
+    )
+      continue;
+    const normalized = position.world.map(
+      (value, axis) =>
+        (value - bounds.min[axis]) / (bounds.max[axis] - bounds.min[axis]),
+    );
+    if (
+      normalized.some(
+        (value) => !Number.isFinite(value) || value <= 0 || value >= 1,
+      )
+    )
+      continue;
+    const [normalizedX, normalizedY, normalizedZ] = normalized;
+    const [wx, wy, wz] = layout.axisBits;
+    samples.unshift({
+      timeMs: keyframe.timeMs,
+      normalized: [normalizedX, normalizedY, normalizedZ],
+      facingYawDeg: position.facingYawDeg,
+      q: [
+        Math.floor(normalizedX * 2 ** wx),
+        Math.floor(normalizedY * 2 ** wy),
+        Math.floor(normalizedZ * 2 ** wz),
+      ],
+    });
+  }
 }

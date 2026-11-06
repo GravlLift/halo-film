@@ -26,7 +26,11 @@ const death = (xuid: string, timeMs: number): HighlightEvent => ({
 test('a body belongs to the owner named in its creation, whatever the timing', () => {
   // Slot 3 starts 1.6 s after B died and 3.6 s after A died, matching no respawn delay;
   // its creation record names B.
-  const tracks = [track(1, 0, 10_000), track(2, 0, 12_000), track(3, 13_600, 40_000)];
+  const tracks = [
+    track(1, 0, 10_000),
+    track(2, 0, 12_000),
+    track(3, 13_600, 40_000),
+  ];
   const events = [death('a', 10_000), death('b', 12_000)];
   const roster = [
     { playerIndex: 0, xuid: 'a' },

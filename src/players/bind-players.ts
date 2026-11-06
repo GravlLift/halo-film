@@ -105,10 +105,7 @@ export function bindPlayers(
     list.push(d.timeMs + clockOffsetMs);
     deathTimes.set(d.xuid, list);
   }
-  const respawnMs = estimateRespawnMs(
-    lives,
-    [...deathTimes.values()].flat(),
-  );
+  const respawnMs = estimateRespawnMs(lives, [...deathTimes.values()].flat());
 
   const open = lives.filter((l) => !owner.has(l));
   const ownedByXuid = new Map<string, Life[]>();
@@ -202,12 +199,12 @@ function ownersFromCreations(
     // A slot can be reused; the creation that counts is the latest before the life began.
     const creation = owners.creations
       .filter(
-        (c) => c.slot === life.slot && c.timeMs <= life.startMs + CREATION_SLACK_MS,
+        (c) =>
+          c.slot === life.slot && c.timeMs <= life.startMs + CREATION_SLACK_MS,
       )
-      .reduce<BipedCreation | undefined>(
-        (latest, c) => (!latest || c.timeMs > latest.timeMs ? c : latest),
-        undefined,
-      );
+      .reduce<
+        BipedCreation | undefined
+      >((latest, c) => (!latest || c.timeMs > latest.timeMs ? c : latest), undefined);
     const xuid = creation && xuidOf.get(creation.participantIndex);
     if (xuid) owner.set(life, xuid);
   }
@@ -215,7 +212,10 @@ function ownersFromCreations(
 }
 
 /** The respawn delay is the most common gap between a death and a life starting. */
-function estimateRespawnMs(lives: readonly Life[], deathTimes: number[]): number {
+function estimateRespawnMs(
+  lives: readonly Life[],
+  deathTimes: number[],
+): number {
   const [min, max] = RESPAWN_SEARCH_MS;
   const bins = new Map<number, number>();
   for (const t of deathTimes) {
@@ -256,7 +256,9 @@ function fitCost(life: Life, endT?: number, startT?: number): number {
  * Minimum-cost assignment of rows to distinct columns (Hungarian algorithm).
  * A row may stay unassigned at `UNASSIGNED_COST`; it then maps to undefined.
  */
-function assignMinCost(cost: readonly (readonly number[])[]): (number | undefined)[] {
+function assignMinCost(
+  cost: readonly (readonly number[])[],
+): (number | undefined)[] {
   const n = cost.length;
   const realCols = n === 0 ? 0 : cost[0].length;
   const m = realCols + n;

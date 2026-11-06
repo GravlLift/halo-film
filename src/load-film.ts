@@ -17,7 +17,10 @@ import type {
 import { extractCarryEvents } from './decoders/carry-events';
 import { extractBipedCreations } from './decoders/biped-creations';
 import { buildPlayerStats } from './timeline/player-stats';
-import { extractFilmPositions, readHighlightEvents } from './decoders/positions';
+import {
+  extractFilmPositions,
+  readHighlightEvents,
+} from './decoders/positions';
 import { extractProjectiles } from './decoders/projectiles';
 import type { ProjectileFlight } from './decoders/projectiles';
 import { createReplay } from './timeline/replay';

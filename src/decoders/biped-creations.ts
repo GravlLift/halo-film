@@ -36,7 +36,10 @@ export function readBipedCreations(
     if (bitsAt(payload, p + 18, 6) !== BIPED_TYPE_INDEX) continue;
     const slot = bitsAt(payload, p + 3, 13);
     let at = p + NEW_HEADER_BITS;
-    if (bitsAt(payload, at, 1) !== 1 || bitsAt(payload, at + 1, 8) !== VERSION) {
+    if (
+      bitsAt(payload, at, 1) !== 1 ||
+      bitsAt(payload, at + 1, 8) !== VERSION
+    ) {
       continue;
     }
     at += 9;

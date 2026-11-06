@@ -21,7 +21,11 @@ import { inflateChunk, PacketType, splitPackets } from '../core/packets';
 import { readBipedComponents, type BipedComponents } from '../core/components';
 import { linkLives, type Actor } from '../players/link-lives';
 import { dropStagingTracks } from '../players/staging-tracks';
-import { bindPlayers, type BipedOwners, type PlayerIdentity } from '../players/bind-players';
+import {
+  bindPlayers,
+  type BipedOwners,
+  type PlayerIdentity,
+} from '../players/bind-players';
 import { parseHighlightEvents, type HighlightEvent } from './highlight-events';
 
 export interface PositionSample extends BipedComponents {

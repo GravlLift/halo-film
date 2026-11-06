@@ -15,6 +15,7 @@ import type {
   MapObjective,
 } from '@gravllift/halo-infinite-maps';
 import { extractCarryEvents } from './decoders/carry-events';
+import { extractBipedCreations } from './decoders/biped-creations';
 import { buildPlayerStats } from './timeline/player-stats';
 import { extractFilmPositions, readHighlightEvents } from './decoders/positions';
 import { extractProjectiles } from './decoders/projectiles';
@@ -139,6 +140,7 @@ export async function buildReplay(
   const positions = await extractFilmPositions(chunks, {
     highlightEvents,
     players,
+    bipedOwners: await extractBipedCreations(chunks),
     layout: filmLayoutFor(mapId),
   });
   if (!positions) throw new Error('No player positions found in film');

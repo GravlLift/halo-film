@@ -21,7 +21,7 @@ import { inflateChunk, PacketType, splitPackets } from '../core/packets';
 import { readBipedComponents, type BipedComponents } from '../core/components';
 import { linkLives, type Actor } from '../players/link-lives';
 import { dropStagingTracks } from '../players/staging-tracks';
-import { bindPlayers, type PlayerIdentity } from '../players/bind-players';
+import { bindPlayers, type BipedOwners, type PlayerIdentity } from '../players/bind-players';
 import { parseHighlightEvents, type HighlightEvent } from './highlight-events';
 
 export interface PositionSample extends BipedComponents {
@@ -82,6 +82,8 @@ export interface ExtractOptions {
   highlightEvents?: readonly HighlightEvent[];
   /** Roster with teams, used for names and team ids. */
   players?: readonly PlayerIdentity[];
+  /** Body owners from `extractBipedCreations`; names lives exactly, without the death feed. */
+  bipedOwners?: BipedOwners;
 }
 
 /** Finds the highlight-events chunk and parses it. */
@@ -109,9 +111,18 @@ export async function extractFilmPositions(
   if (!raw) return null;
   const positions = { ...raw, tracks: dropStagingTracks(raw.tracks) };
   const events = options.highlightEvents ?? [];
-  if (events.some((e) => e.type === 'death')) {
-    const bound = bindPlayers(positions.tracks, events, options.players);
-    if (bound.matchedDeaths > bound.totalDeaths / 2) {
+  const owners = options.bipedOwners;
+  if (events.some((e) => e.type === 'death') || owners?.creations.length) {
+    const bound = bindPlayers(
+      positions.tracks,
+      events,
+      options.players,
+      owners,
+    );
+    if (
+      bound.ownedLives > bound.totalLives / 2 ||
+      bound.matchedDeaths > bound.totalDeaths / 2
+    ) {
       return { ...positions, actors: bound.actors };
     }
   }

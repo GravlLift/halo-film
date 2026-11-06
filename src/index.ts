@@ -41,3 +41,4 @@ export {
   extractPositions,
   readHighlightEvents,
 } from './decoders/positions';
+export { extractBipedCreations } from './decoders/biped-creations';

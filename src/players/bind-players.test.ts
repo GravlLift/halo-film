@@ -23,43 +23,62 @@ const death = (xuid: string, timeMs: number): HighlightEvent => ({
   medalType: 0,
 });
 
-test('a trade does not give a player a life that overlaps their previous one', () => {
-  // A dies at 10 s, respawns, and trades with B at 20 s. B's only life is slot 2, which
-  // ends within a frame of A's second life; A cannot own it because A died at 10 s.
+test('a body belongs to the owner named in its creation, whatever the timing', () => {
+  // Slot 3 starts 1.6 s after B died and 3.6 s after A died, matching no respawn delay;
+  // its creation record names B.
+  const tracks = [track(1, 0, 10_000), track(2, 0, 12_000), track(3, 13_600, 40_000)];
+  const events = [death('a', 10_000), death('b', 12_000)];
+  const roster = [
+    { playerIndex: 0, xuid: 'a' },
+    { playerIndex: 1, xuid: 'b' },
+  ];
+  const creations = [
+    { timeMs: 5_000, slot: 1, generation: 1, participantIndex: 0 },
+    { timeMs: 5_000, slot: 2, generation: 1, participantIndex: 1 },
+    { timeMs: 13_000, slot: 3, generation: 1, participantIndex: 1 },
+  ];
+  const { actors } = bindPlayers(tracks, events, [], { creations, roster });
+  const slotsOf = (xuid: string) =>
+    actors.find((a) => a.xuid === xuid)?.lives.map((l) => l.slot);
+  assert.deepEqual(slotsOf('a'), [1]);
+  assert.deepEqual(slotsOf('b'), [2, 3]);
+});
+
+test('simultaneous deaths are told apart by when each player respawned', () => {
+  // A and B die together at 60 s. B died earlier (10 s) so B's life starts at 20.1 s;
+  // A died at 30 s so A's starts at 40.1 s. Matching the ends alone cannot separate them.
   const tracks = [
     track(1, 0, 10_000),
-    track(2, 0, 20_000),
-    track(5, 12_000, 20_010),
+    track(2, 0, 30_000),
+    track(3, 20_100, 60_000),
+    track(4, 40_100, 60_010),
   ];
-  const events = [death('a', 10_000), death('a', 20_000), death('b', 20_000)];
+  const events = [
+    death('a', 30_000),
+    death('a', 60_000),
+    death('b', 10_000),
+    death('b', 60_000),
+  ];
   const { actors } = bindPlayers(tracks, events);
   const slotsOf = (xuid: string) =>
     actors.find((a) => a.xuid === xuid)?.lives.map((l) => l.slot);
-  assert.deepEqual(slotsOf('a'), [1, 5]);
-  assert.deepEqual(slotsOf('b'), [2]);
+  assert.deepEqual(slotsOf('a'), [2, 4]);
+  assert.deepEqual(slotsOf('b'), [1, 3]);
 });
 
-test('a trade resolves when one death takes the life another death needs', () => {
-  // Both die near 30 s. A's death fits slots 10 and 11, but B's fits only slot 10
-  // (slot 11 ends 700 ms later). B must keep slot 10; A takes slot 11.
+test('a track that stops sampling before its death still binds by its respawn', () => {
+  // A's second life ends 1 s before A's death at 60 s, but it starts one respawn
+  // delay after A's death at 10 s, which no other player's life does.
   const tracks = [
     track(1, 0, 10_000),
-    track(2, 0, 10_000),
-    track(10, 20_000, 30_000),
-    track(11, 20_000, 30_700),
+    track(2, 0, 30_000),
+    track(3, 20_100, 59_000),
+    track(4, 40_100, 70_000),
   ];
-  const events = [
-    death('a', 10_000),
-    death('b', 10_000),
-    death('a', 30_000),
-    death('b', 30_100),
-  ];
+  const events = [death('a', 10_000), death('a', 60_000), death('b', 30_000)];
   const { actors } = bindPlayers(tracks, events);
-  const owners = actors.map((a) => a.lives.map((l) => l.slot).sort());
-  assert.equal(
-    actors.filter((a) => a.lives.some((l) => l.slot === 10 || l.slot === 11))
-      .length,
-    2,
-  );
-  assert.equal(owners.flat().length, 4);
+  const slotsOf = (xuid: string) =>
+    actors.find((a) => a.xuid === xuid)?.lives.map((l) => l.slot);
+  assert.deepEqual(slotsOf('a'), [1, 3]);
+  assert.deepEqual(slotsOf('b'), [2, 4]);
 });

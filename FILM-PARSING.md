@@ -65,6 +65,7 @@ Entry points stay at the top level.
 
 ## Slot -> player mapping (partially solved)
 
+Superseded: each biped creation record names its owner (see "Highlight events and player binding"). The notes below are the original timing-based attempt.
 Film has no slot-to-player binding (LevelUp lists the same as unsolved: biped carries a RAM entity handle).
 `linkLives` chains lives by the constant ~10.1 s respawn gap (first-died, first-respawned). On the sample match it
 yields exactly 8 actors, ~130 respawns with a 10.1 s gap. Caveats:
@@ -111,7 +112,9 @@ dyn-prec i2/i3 variants for some archetypes.
 ## Highlight events and player binding
 
 - Manifest chunk type 3 (last chunk) is the highlight-events feed: kill, death, medal and mode events with the player's xuid, gamertag and a film-clock time. Parsed by `parseHighlightEvents` (`src/highlight-events.ts`, port of SPNKr/LevelUp `highlight_events.go`); `readHighlightEvents(chunks, majorVersion)` finds the chunk.
-- `bindPlayers` (`src/bind-players.ts`) names each biped life by the death that ends it. A constant clock offset between event time and track time is searched (±5 s, most matches then tightest gaps); on sample match 5a997c10 it is -60 ms and 137/140 deaths match a life end within 250 ms. Unnamed lives (survivors, final lives) go to the player who is dead at that time and died most recently.
+- **Exact binding (preferred).** A biped's creation record (`decoders/biped-creations.ts`, LevelUp `biped_creation.go`) is `001 [slot 13][gen 2][type 6 = 35]` then `[1][version u8 = 13][1][representation u32 = 0x1876BDA0][0][owner u5]`. The 5-bit owner is the participant index, which is the 5 bits before each xuid in the player metadata packet (`parseRoster().playerIndex`). `extractBipedCreations(chunks)` returns both; pass it as `bipedOwners` to `extractFilmPositions`. On 047b96c8 it names 245 of 255 lives the same as the death model and fixes the 10 it got wrong (round-end respawns with short delays, swapped first lives).
+- Fallback for lives without a creation record (noise tracks, unreadable films): `bindPlayers` (`src/players/bind-players.ts`) treats a player's death list as their whole timeline: the life after death k ends at death k+1 and starts one respawn delay (estimated from the film, ~10.1 s) after death k. Tracks are assigned to those lives in one minimum-cost assignment (Hungarian). Respawn delay shortens near round ends and rounds reset everyone without a death, so this fallback is imperfect there.
+- Previously, `bindPlayers` named each biped life by the death that ends it. A constant clock offset between event time and track time is searched (±5 s, most matches then tightest gaps); on sample match 5a997c10 it is -60 ms and 137/140 deaths match a life end within 250 ms. Unnamed lives (survivors, final lives) go to the player who is dead at that time and died most recently.
 - `extractFilmPositions(chunks, { highlightEvents, players })` returns bound actors (`xuid`, `gamertag`, `team`) when more than half the deaths match, else the old anonymous `linkLives` actors. `Replay.players` carries identity per actor id.
 - Teams come from the caller (`stats.json` `LastTeamId` in match-downloader, `match.Players` in Halo Query). Reading the ti=9 managed-player team designator from keyframes (LevelUp `player_teams.go`) is not ported.
 - Remaining: ADS zoom events (FOV), inventory, FOV cone/health bars/inventory on the canvas.

@@ -436,6 +436,9 @@ export function createReplay(
   hillInput?: HillInput,
   inventoryDeltas: InventoryDelta[] = [],
 ): Replay {
+  const actorsById = new Map(
+    positions.actors.map((actor) => [actor.actor, actor]),
+  );
   const deltasBySlot = new Map<number, InventoryDelta[]>();
   for (const delta of inventoryDeltas) {
     const list = deltasBySlot.get(delta.slot) ?? [];
@@ -453,7 +456,7 @@ export function createReplay(
   function actorFires(actor: number): FireEvent[] {
     const cached = firesCache.get(actor);
     if (cached) return cached;
-    const entry = positions.actors.find((a) => a.actor === actor);
+    const entry = actorsById.get(actor);
     const fires = (entry?.lives ?? [])
       .flatMap((life) =>
         (firesBySlot.get(life.slot) ?? []).filter(
@@ -669,7 +672,7 @@ export function createReplay(
       }));
     },
     status(actor, timeMs) {
-      const entry = positions.actors.find((a) => a.actor === actor);
+      const entry = actorsById.get(actor);
       if (!entry) return undefined;
       const ordered = [...entry.lives].sort((a, b) => a.startMs - b.startMs);
       const current = ordered.find(
@@ -688,7 +691,7 @@ export function createReplay(
       };
     },
     loadout(actor, timeMs) {
-      const entry = positions.actors.find((a) => a.actor === actor);
+      const entry = actorsById.get(actor);
       if (!entry) return undefined;
       let latest: InventorySnapshot | undefined;
       let latestLifeEnd = Infinity;
@@ -723,8 +726,10 @@ export function createReplay(
       const lastIndex = upperBound(fires, timeMs) - 1;
       const events = [
         ...slotDeltas
-          .slice(0, upperBound(slotDeltas, until))
-          .filter((d) => d.timeMs > latest.timeMs)
+          .slice(
+            upperBound(slotDeltas, latest.timeMs),
+            upperBound(slotDeltas, until),
+          )
           .map(
             (delta): SlotEvent => ({
               timeMs: delta.timeMs,
@@ -732,16 +737,13 @@ export function createReplay(
               delta,
             }),
           ),
-        ...fires
-          .slice(0, lastIndex + 1)
-          .filter((f) => f.timeMs > latest.timeMs)
-          .map(
-            (f): SlotEvent => ({
-              timeMs: f.timeMs,
-              kind: 'fire',
-              family: f.family,
-            }),
-          ),
+        ...fires.slice(upperBound(fires, latest.timeMs), lastIndex + 1).map(
+          (f): SlotEvent => ({
+            timeMs: f.timeMs,
+            kind: 'fire',
+            family: f.family,
+          }),
+        ),
       ].sort(
         (a, b) =>
           a.timeMs - b.timeMs ||
@@ -924,8 +926,7 @@ export function createReplay(
     },
     trail(actor, timeMs, windowMs) {
       const points: ReplayPoint[] = [];
-      for (const life of lives) {
-        if (life.actor !== actor) continue;
+      for (const life of livesByActor.get(actor) ?? []) {
         const first = Math.max(life.times[0], timeMs - windowMs);
         const lastIndex = lowerBound(life.times, timeMs);
         const firstIndex = lowerBound(life.times, first);

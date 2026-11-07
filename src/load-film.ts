@@ -25,6 +25,7 @@ import {
 import { extractProjectiles } from './decoders/projectiles';
 import type { ProjectileFlight } from './decoders/projectiles';
 import { createReplay } from './timeline/replay';
+import { buildKillFeed, type KillFeedEntry } from './timeline/kill-feed';
 import { extractHillControl, type HillInput } from './timeline/hill-state';
 import {
   extractZoneCaptureSlots,
@@ -94,6 +95,7 @@ const SHROUD_RADIUS_M = 3.5;
 /** A match replay: the film's timeline plus the static map information around it. */
 export interface MatchReplay extends Replay {
   projectiles: ReplayProjectile[];
+  killFeed: KillFeedEntry[];
   map: {
     /** Zones and spawns of the game mode, in film coordinates. */
     objectives: MapObjective[];
@@ -304,6 +306,7 @@ export async function buildReplay(
     inventoryDeltas,
   );
   return Object.assign(replay, {
+    killFeed: buildKillFeed(highlightEvents, positions, damageEvents),
     projectiles: flights.map((flight): ReplayProjectile => {
       const xuid =
         flight.thrower === undefined

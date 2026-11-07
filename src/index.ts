@@ -18,6 +18,7 @@ export type {
   ReplayPoint,
 } from './timeline/replay';
 export type { PlayerStatSnapshot } from './timeline/player-stats';
+export type { KillFeedEntry, KillFeedPlayer } from './timeline/kill-feed';
 export type { ZoneState } from './timeline/zone-state';
 export type { HillState, HillTeamProgress } from './timeline/hill-state';
 export type { ProjectileFlight, ProjectilePoint } from './decoders/projectiles';

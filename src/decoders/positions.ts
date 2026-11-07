@@ -80,6 +80,7 @@ function loadFrames(
 export interface LinkedFilmPositions extends FilmPositions {
   /** Anonymous players; each owns the lives (slots) that respawn chain together. */
   actors: Actor[];
+  highlightClockOffsetMs?: number;
 }
 
 export interface ExtractOptions {
@@ -126,6 +127,7 @@ export async function extractFilmPositions(
   const positions = { ...raw, tracks: dropStagingTracks(raw.tracks) };
   const events = options.highlightEvents ?? [];
   const owners = options.bipedOwners;
+  let highlightClockOffsetMs = 0;
   if (events.some((e) => e.type === 'death') || owners?.creations.length) {
     const bound = bindPlayers(
       positions.tracks,
@@ -133,14 +135,23 @@ export async function extractFilmPositions(
       options.players,
       owners,
     );
+    highlightClockOffsetMs = bound.totalDeaths > 0 ? bound.clockOffsetMs : 0;
     if (
       bound.ownedLives > bound.totalLives / 2 ||
       bound.matchedDeaths > bound.totalDeaths / 2
     ) {
-      return { ...positions, actors: bound.actors };
+      return {
+        ...positions,
+        actors: bound.actors,
+        highlightClockOffsetMs,
+      };
     }
   }
-  return { ...positions, actors: linkLives(positions.tracks) };
+  return {
+    ...positions,
+    actors: linkLives(positions.tracks),
+    highlightClockOffsetMs,
+  };
 }
 
 export async function extractPositions(

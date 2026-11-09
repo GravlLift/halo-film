@@ -17,6 +17,10 @@ import type {
 } from '@gravllift/halo-infinite-maps';
 import { extractCarryEvents } from './decoders/carry-events';
 import { extractBipedCreations } from './decoders/biped-creations';
+import {
+  extractPlayerGameEvents,
+  extractPlayerKilledEvents,
+} from './decoders/kill-events';
 import { buildPlayerStats } from './timeline/player-stats';
 import {
   extractFilmPositions,
@@ -143,10 +147,11 @@ export async function buildReplay(
     chunks,
     film.CustomData.FilmMajorVersion,
   );
+  const bipedOwners = await extractBipedCreations(chunks);
   const positions = await extractFilmPositions(chunks, {
     highlightEvents,
     players,
-    bipedOwners: await extractBipedCreations(chunks),
+    bipedOwners,
     layout: filmLayoutFor(mapId),
     worldBounds: filmWorldBoundsFor(mapId),
   });
@@ -192,6 +197,8 @@ export async function buildReplay(
     chunks,
     unitAtPredicate(positions),
   );
+  const killEvents = await extractPlayerKilledEvents(chunks);
+  const playerGameEvents = await extractPlayerGameEvents(chunks);
   await stage('Tracing projectiles...');
   const flights = await extractProjectiles(chunks, positions.layout);
   await stage('Reading objectives...');
@@ -306,7 +313,14 @@ export async function buildReplay(
     inventoryDeltas,
   );
   return Object.assign(replay, {
-    killFeed: buildKillFeed(highlightEvents, positions, damageEvents),
+    killFeed: buildKillFeed(
+      highlightEvents,
+      positions,
+      damageEvents,
+      killEvents,
+      bipedOwners.roster,
+      playerGameEvents,
+    ),
     projectiles: flights.map((flight): ReplayProjectile => {
       const xuid =
         flight.thrower === undefined

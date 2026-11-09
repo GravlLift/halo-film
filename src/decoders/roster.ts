@@ -1,4 +1,4 @@
-import { BitReader } from "../core/bit-reader";
+import { BitReader } from '../core/bit-reader';
 
 export interface FilmPlayer {
   /** Per-match slot index (5 bits preceding the player's first xuid). */
@@ -49,13 +49,16 @@ function gamertagBefore(reader: BitReader, xuidPos: number): string | null {
     units.unshift(unit);
   }
   // A genuine name is preceded by a zero unit; anything else is noise.
-  return boundedByZero && units.length > 0 ? String.fromCharCode(...units) : null;
+  return boundedByZero && units.length > 0
+    ? String.fromCharCode(...units)
+    : null;
 }
 
 export function parseRoster(payload: Uint8Array): FilmPlayer[] {
   const reader = new BitReader(payload);
-  const players: FilmPlayer[] = [];
+  const playersByIndex = new Map<number, FilmPlayer[]>();
   for (const [xuid, positions] of findXuids(reader)) {
+    if (positions.length < 2) continue;
     let gamertag: string | null = null;
     for (const pos of positions) {
       gamertag = gamertagBefore(reader, pos);
@@ -64,11 +67,20 @@ export function parseRoster(payload: Uint8Array): FilmPlayer[] {
     if (!gamertag) continue;
     const first = Math.min(...positions);
     if (first < PLAYER_INDEX_BITS) continue;
-    players.push({
-      playerIndex: reader.peek(first - PLAYER_INDEX_BITS, PLAYER_INDEX_BITS),
+    const playerIndex = reader.peek(
+      first - PLAYER_INDEX_BITS,
+      PLAYER_INDEX_BITS,
+    );
+    const candidates = playersByIndex.get(playerIndex) ?? [];
+    candidates.push({
+      playerIndex,
       xuid: xuid.toString(),
       gamertag,
     });
+    playersByIndex.set(playerIndex, candidates);
   }
-  return players.sort((a, b) => a.playerIndex - b.playerIndex);
+  return [...playersByIndex.values()]
+    .filter((candidates) => candidates.length === 1)
+    .map((candidates) => candidates[0])
+    .sort((a, b) => a.playerIndex - b.playerIndex);
 }

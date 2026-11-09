@@ -1,19 +1,23 @@
-import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
-import path from "node:path";
-import { describe, it } from "node:test";
-import { BitReader } from "./core/bit-reader";
-import { pitchDegrees, readBipedComponents, yawDegrees } from "./core/components";
-import { findBipedSlots } from "./core/biped-records";
-import { bindPlayers } from "./players/bind-players";
-import { linkLives } from "./players/link-lives";
-import { createReplay } from "./timeline/replay";
-import { buildScoreTimeline, scoreAt } from "./timeline/score";
-import type { StatRecord } from "./decoders/stat-records";
-import { PacketType, splitPackets } from "./core/packets";
-import type { FilmChunkInput } from "./core/film-input";
-import { parseFilm } from "./parse-film";
-import { parseRoster } from "./decoders/roster";
+import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import { describe, it } from 'node:test';
+import { BitReader } from './core/bit-reader';
+import {
+  pitchDegrees,
+  readBipedComponents,
+  yawDegrees,
+} from './core/components';
+import { findBipedSlots } from './core/biped-records';
+import { bindPlayers } from './players/bind-players';
+import { linkLives } from './players/link-lives';
+import { createReplay } from './timeline/replay';
+import { buildScoreTimeline, scoreAt } from './timeline/score';
+import type { StatRecord } from './decoders/stat-records';
+import { PacketType, splitPackets } from './core/packets';
+import type { FilmChunkInput } from './core/film-input';
+import { parseFilm } from './parse-film';
+import { parseRoster } from './decoders/roster';
 
 class BitWriter {
   private bits: number[] = [];
@@ -50,15 +54,15 @@ class BitWriter {
   }
 }
 
-describe("BitReader", () => {
-  it("reads MSB-first across byte boundaries", () => {
+describe('BitReader', () => {
+  it('reads MSB-first across byte boundaries', () => {
     const reader = new BitReader(Uint8Array.from([0b10110011, 0b01010101]));
     assert.equal(reader.read(3), 0b101);
     assert.equal(reader.read(7), 0b1001101);
     assert.equal(reader.position, 10);
   });
 
-  it("reads little-endian integers at unaligned offsets", () => {
+  it('reads little-endian integers at unaligned offsets', () => {
     const bytes = new BitWriter()
       .write(0b101, 3)
       .writeLittleEndian(0x0009000312345678n, 8)
@@ -70,8 +74,8 @@ describe("BitReader", () => {
   });
 });
 
-describe("splitPackets", () => {
-  it("parses headers and stops at ChunkEnd", () => {
+describe('splitPackets', () => {
+  it('parses headers and stops at ChunkEnd', () => {
     const header = (type: number, size: number, micros: bigint) => {
       const b = Buffer.alloc(16);
       b.writeUInt16LE(type, 0);
@@ -95,15 +99,15 @@ describe("splitPackets", () => {
     );
   });
 
-  it("rejects truncated packets", () => {
+  it('rejects truncated packets', () => {
     const b = Buffer.alloc(16);
     b.writeUInt32LE(50, 4);
     assert.throws(() => splitPackets(b));
   });
 });
 
-describe("parseRoster", () => {
-  it("pairs a gamertag with its xuid and reads the player index", () => {
+describe('parseRoster', () => {
+  it('pairs a gamertag with its xuid and reads the player index', () => {
     const xuid = 0x0009000312345678n;
     const bytes = new BitWriter()
       .write(0, 7)
@@ -111,27 +115,73 @@ describe("parseRoster", () => {
       .writeLittleEndian(xuid, 8)
       .write(0, 40)
       .write(0, 16)
-      .writeUtf16("Spartan 117")
+      .writeUtf16('Spartan 117')
       .write(0, 16)
       .write(0, 152)
       .writeLittleEndian(xuid, 8)
       .write(0, 16)
       .toBytes();
     assert.deepEqual(parseRoster(bytes), [
-      { playerIndex: 5, xuid: xuid.toString(), gamertag: "Spartan 117" },
+      { playerIndex: 5, xuid: xuid.toString(), gamertag: 'Spartan 117' },
     ]);
+  });
+
+  it('rejects a name-shaped single xuid occurrence', () => {
+    const xuid = 0x0009000312345678n;
+    const bytes = new BitWriter()
+      .write(0, 7)
+      .write(5, 5)
+      .write(0, 40)
+      .writeUtf16('False Tag')
+      .write(0, 16)
+      .write(0, 152)
+      .writeLittleEndian(xuid, 8)
+      .toBytes();
+    assert.deepEqual(parseRoster(bytes), []);
+  });
+
+  it('rejects colliding participant indices instead of overwriting one player', () => {
+    const firstXuid = 0x0009000312345678n;
+    const secondXuid = 0x0009000312345679n;
+    const bytes = new BitWriter()
+      .write(0, 7)
+      .write(5, 5)
+      .writeLittleEndian(firstXuid, 8)
+      .write(0, 40)
+      .write(0, 16)
+      .writeUtf16('First Player')
+      .write(0, 16)
+      .write(0, 152)
+      .writeLittleEndian(firstXuid, 8)
+      .write(0, 7)
+      .write(5, 5)
+      .writeLittleEndian(secondXuid, 8)
+      .write(0, 40)
+      .write(0, 16)
+      .writeUtf16('Second Player')
+      .write(0, 16)
+      .write(0, 152)
+      .writeLittleEndian(secondXuid, 8)
+      .toBytes();
+    assert.deepEqual(parseRoster(bytes), []);
   });
 });
 
-describe("biped components", () => {
-  it("decodes aim angles and shield after the position block", () => {
+describe('biped components', () => {
+  it('decodes aim angles and shield after the position block', () => {
     // 2 tail bits, then i5: q=64 (full shield) + no regen + 16 + 4 pad bits
     // then i21: flag, yaw=1024 (90 deg), pitch=1024 (0 deg)
     const bits =
-      "00" + "01000000" + "0" + "0".repeat(20) + "0" + "010000000000" + "10000000000";
+      '00' +
+      '01000000' +
+      '0' +
+      '0'.repeat(20) +
+      '0' +
+      '010000000000' +
+      '10000000000';
     const bytes = new Uint8Array(Math.ceil(bits.length / 8));
     [...bits].forEach((b, i) => {
-      if (b === "1") bytes[i >> 3] |= 0x80 >> (i & 7);
+      if (b === '1') bytes[i >> 3] |= 0x80 >> (i & 7);
     });
     const out = readBipedComponents(new BitReader(bytes), 0, [0, 5, 21]);
     assert.equal(out.shieldQ, 64);
@@ -144,11 +194,13 @@ describe("biped components", () => {
 
 const sampleDir = path.join(
   import.meta.dirname,
-  "../../../packages/match-downloader/films/26d45816-3c2b-41ae-84b5-9e0cc1d1c096",
+  '../../../packages/match-downloader/films/26d45816-3c2b-41ae-84b5-9e0cc1d1c096',
 );
 
 function sampleManifest() {
-  return JSON.parse(readFileSync(path.join(sampleDir, "manifest.json"), "utf8"));
+  return JSON.parse(
+    readFileSync(path.join(sampleDir, 'manifest.json'), 'utf8'),
+  );
 }
 
 function sampleMetadata() {
@@ -170,33 +222,33 @@ function* sampleChunks(): Generator<FilmChunkInput> {
       startTimeOffsetMs: c.ChunkStartTimeOffsetMilliseconds,
       durationMs: c.DurationMilliseconds,
       data: readFileSync(
-        path.join(sampleDir, c.FileRelativePath.replace(/^[\\/]/, "")),
+        path.join(sampleDir, c.FileRelativePath.replace(/^[\\/]/, '')),
       ),
     };
   }
 }
 
-describe("sample film", { skip: !existsSync(sampleDir) }, () => {
-  it("parses roster, registry and frame timeline", async () => {
+describe('sample film', { skip: !existsSync(sampleDir) }, () => {
+  it('parses roster, registry and frame timeline', async () => {
     const film = await parseFilm(sampleMetadata(), sampleChunks());
     assert.equal(film.chunks.length, 41);
     assert.deepEqual(
       film.players.map((p) => p.gamertag),
       [
-        "iDankDank v3",
-        "Connor 018",
-        "GravlLift",
-        "Miss Luvless",
-        "iKaZu0",
-        "Miighty Chew",
-        "MuhammadAllbee",
-        "BeetleCrisp",
-        "MistrDuggy",
+        'iDankDank v3',
+        'Connor 018',
+        'GravlLift',
+        'Miss Luvless',
+        'iKaZu0',
+        'Miighty Chew',
+        'MuhammadAllbee',
+        'BeetleCrisp',
+        'MistrDuggy',
       ],
     );
     assert.ok(
       film.registry.components.some(
-        (c) => c.name === "statborg-current-round-value-stat-component",
+        (c) => c.name === 'statborg-current-round-value-stat-component',
       ),
     );
     const frames = film.chunks.reduce((sum, c) => sum + c.frames.count, 0);
@@ -214,8 +266,8 @@ function track(slot: number, startMs: number, endMs: number) {
   return { slot, samples: [sample(startMs), sample(endMs)] };
 }
 
-describe("linkLives", () => {
-  it("hands each respawn to the player who died first", () => {
+describe('linkLives', () => {
+  it('hands each respawn to the player who died first', () => {
     const actors = linkLives([
       track(512, 0, 30_000),
       track(513, 0, 20_000),
@@ -234,8 +286,8 @@ describe("linkLives", () => {
   });
 });
 
-describe("graves", () => {
-  it("marks a death until the respawn, and ignores a survivor", () => {
+describe('graves', () => {
+  it('marks a death until the respawn, and ignores a survivor', () => {
     const tracks = [
       track(512, 0, 30_000), // dies at 30 s; respawns as 520
       track(520, 40_000, 100_000), // survives to the end
@@ -245,7 +297,16 @@ describe("graves", () => {
       tracks,
       actors: linkLives(tracks),
     } as unknown as Parameters<typeof createReplay>[0];
-    const replay = createReplay(positions, undefined, undefined, [], [], [], {}, 100_000);
+    const replay = createReplay(
+      positions,
+      undefined,
+      undefined,
+      [],
+      [],
+      [],
+      {},
+      100_000,
+    );
     assert.equal(replay.graves(20_000).length, 0);
     assert.equal(replay.graves(35_000).length, 1);
     assert.equal(replay.graves(45_000).length, 0);
@@ -253,8 +314,8 @@ describe("graves", () => {
   });
 });
 
-describe("findBipedSlots", () => {
-  it("keeps gapped slots near anchors and drops distant noise", () => {
+describe('findBipedSlots', () => {
+  it('keeps gapped slots near anchors and drops distant noise', () => {
     const counts = new Map([
       [512, 1000],
       [516, 600],
@@ -268,7 +329,7 @@ describe("findBipedSlots", () => {
   });
 });
 
-describe("bindPlayers", () => {
+describe('bindPlayers', () => {
   const track = (slot: number, start: number, end: number) => ({
     slot,
     samples: Array.from({ length: 10 }, (_, i) => ({
@@ -278,14 +339,14 @@ describe("bindPlayers", () => {
   const death = (xuid: string, timeMs: number) => ({
     xuid,
     gamertag: `p${xuid}`,
-    type: "death" as const,
+    type: 'death' as const,
     typeHint: 20,
     timeMs,
     isMedal: false,
     medalType: 1,
   });
 
-  it("names lives by the death that ends them, with a constant clock offset", () => {
+  it('names lives by the death that ends them, with a constant clock offset', () => {
     const tracks = [
       track(1, 0, 10000),
       track(2, 0, 20000),
@@ -293,21 +354,27 @@ describe("bindPlayers", () => {
       track(4, 25000, 40000),
     ];
     // Event clock runs 500 ms behind the track clock.
-    const events = [death("A", 9500), death("B", 19500), death("A", 29500)];
+    const events = [death('A', 9500), death('B', 19500), death('A', 29500)];
     const result = bindPlayers(tracks as never, events, [
-      { xuid: "A", team: 1 },
+      { xuid: 'A', team: 1 },
     ]);
     assert.equal(result.clockOffsetMs, 500);
     assert.equal(result.matchedDeaths, 3);
-    const a = result.actors.find((x) => x.xuid === "A");
-    const b = result.actors.find((x) => x.xuid === "B");
-    assert.deepEqual(a?.lives.map((l) => l.slot), [1, 3]);
+    const a = result.actors.find((x) => x.xuid === 'A');
+    const b = result.actors.find((x) => x.xuid === 'B');
+    assert.deepEqual(
+      a?.lives.map((l) => l.slot),
+      [1, 3],
+    );
     assert.equal(a?.team, 1);
     // The unnamed final life goes to B, who is dead when it starts.
-    assert.deepEqual(b?.lives.map((l) => l.slot), [2, 4]);
+    assert.deepEqual(
+      b?.lives.map((l) => l.slot),
+      [2, 4],
+    );
   });
 });
-describe("buildScoreTimeline", () => {
+describe('buildScoreTimeline', () => {
   const record = (timeMs: number, slot: number, a: number): StatRecord => ({
     timeMs,
     slot,
@@ -315,7 +382,7 @@ describe("buildScoreTimeline", () => {
     comps: new Map([[0, { a, b: 0 }]]),
   });
 
-  it("builds cumulative team series and resolves team ids from final scores", () => {
+  it('builds cumulative team series and resolves team ids from final scores', () => {
     const playerRecords: StatRecord[] = Array.from({ length: 30 }, (_, i) => ({
       timeMs: i,
       slot: 10,

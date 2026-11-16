@@ -1,5 +1,6 @@
 /** One downloaded (still zlib-compressed) film chunk plus its manifest entry. */
 export interface FilmChunkInput {
+  fileRelativePath: string;
   index: number;
   chunkType: number;
   startTimeOffsetMs: number;

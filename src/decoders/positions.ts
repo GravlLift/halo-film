@@ -83,6 +83,8 @@ export interface LinkedFilmPositions extends FilmPositions {
   highlightClockOffsetMs?: number;
 }
 
+const MAX_SPAWN_KEYFRAME_GAP_MS = 5000;
+
 export interface ExtractOptions {
   /**
    * The map's real position layout, when known. Detection cannot see a region
@@ -93,6 +95,7 @@ export interface ExtractOptions {
     min: readonly [number, number, number];
     max: readonly [number, number, number];
   };
+  planeBounds?: { minX: number; maxX: number; minY: number; maxY: number };
   /** Death feed from `readHighlightEvents`; enables binding lives to real players. */
   highlightEvents?: readonly HighlightEvent[];
   /** Roster with teams, used for names and team ids. */
@@ -159,7 +162,7 @@ export async function extractPositions(
   knownLayout?: I0Layout,
   initialOptions?: Pick<
     ExtractOptions,
-    'worldBounds' | 'bipedOwners' | 'highlightEvents'
+    'worldBounds' | 'planeBounds' | 'bipedOwners' | 'highlightEvents'
   >,
 ): Promise<FilmPositions | null> {
   const baseMicros: { value: number | null } = { value: null };
@@ -184,7 +187,7 @@ export async function extractPositions(
     const loaded = loadFrames(chunk, baseMicros);
     if (
       !initialKeyframe &&
-      initialOptions?.worldBounds &&
+      (initialOptions?.worldBounds || initialOptions?.planeBounds) &&
       initialOptions.bipedOwners
     ) {
       for (const packet of splitPackets(inflateChunk(chunk.data))) {
@@ -268,7 +271,7 @@ export async function extractPositions(
 
   if (
     initialKeyframe &&
-    initialOptions?.worldBounds &&
+    (initialOptions?.worldBounds || initialOptions?.planeBounds) &&
     initialOptions.bipedOwners
   ) {
     seedInitialKeyframe(
@@ -278,6 +281,7 @@ export async function extractPositions(
       initialOptions.worldBounds,
       initialOptions.bipedOwners,
       initialOptions.highlightEvents ?? [],
+      initialOptions.planeBounds,
     );
   }
 
@@ -294,9 +298,10 @@ export function seedInitialKeyframe(
   tracks: Map<number, PositionSample[]>,
   keyframe: { timeMs: number; positions: readonly KeyframeBipedPosition[] },
   layout: I0Layout,
-  bounds: NonNullable<ExtractOptions['worldBounds']>,
+  bounds: ExtractOptions['worldBounds'],
   owners: BipedOwners,
   events: readonly HighlightEvent[],
+  planeBounds?: ExtractOptions['planeBounds'],
 ): void {
   for (const position of keyframe.positions) {
     const samples = tracks.get(position.slot);
@@ -328,10 +333,24 @@ export function seedInitialKeyframe(
       )
     )
       continue;
-    const normalized = position.world.map(
-      (value, axis) =>
-        (value - bounds.min[axis]) / (bounds.max[axis] - bounds.min[axis]),
-    );
+    const horizontal =
+      planeBounds ??
+      (bounds && {
+        minX: bounds.min[0],
+        maxX: bounds.max[0],
+        minY: bounds.min[1],
+        maxY: bounds.max[1],
+      });
+    if (!horizontal) continue;
+    const normalized = [
+      (position.world[0] - horizontal.minX) /
+        (horizontal.maxX - horizontal.minX),
+      (position.world[1] - horizontal.minY) /
+        (horizontal.maxY - horizontal.minY),
+      bounds
+        ? (position.world[2] - bounds.min[2]) / (bounds.max[2] - bounds.min[2])
+        : samples[0].normalized[2],
+    ];
     if (
       normalized.some(
         (value) => !Number.isFinite(value) || value <= 0 || value >= 1,
@@ -340,7 +359,7 @@ export function seedInitialKeyframe(
       continue;
     const [normalizedX, normalizedY, normalizedZ] = normalized;
     const [wx, wy, wz] = layout.axisBits;
-    samples.unshift({
+    const keyframeSample: PositionSample = {
       timeMs: keyframe.timeMs,
       normalized: [normalizedX, normalizedY, normalizedZ],
       facingYawDeg: position.facingYawDeg,
@@ -349,6 +368,14 @@ export function seedInitialKeyframe(
         Math.floor(normalizedY * 2 ** wy),
         Math.floor(normalizedZ * 2 ** wz),
       ],
-    });
+    };
+    samples.unshift(keyframeSample);
+    if (
+      creation.timeMs >= 0 &&
+      creation.timeMs < keyframe.timeMs &&
+      keyframe.timeMs - creation.timeMs <= MAX_SPAWN_KEYFRAME_GAP_MS
+    ) {
+      samples.unshift({ ...keyframeSample, timeMs: creation.timeMs });
+    }
   }
 }

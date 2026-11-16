@@ -38,7 +38,7 @@ export interface PlayerIdentity {
 export interface BipedOwners {
   creations: readonly BipedCreation[];
   /** Participant index of each player, as listed in the film. */
-  roster: readonly { playerIndex: number; xuid: string }[];
+  roster: readonly { playerIndex: number; xuid: string; gamertag?: string }[];
   bipedSlotBand?: ReadonlySet<number>;
 }
 
@@ -157,6 +157,8 @@ export function bindPlayers(
 
   const gamertags = new Map<string, string>();
   for (const e of events) if (e.gamertag) gamertags.set(e.xuid, e.gamertag);
+  for (const p of owners?.roster ?? [])
+    if (p.gamertag) gamertags.set(p.xuid, p.gamertag);
   for (const p of players) if (p.gamertag) gamertags.set(p.xuid, p.gamertag);
   const teams = new Map(players.map((p) => [p.xuid, p.team]));
 
@@ -181,6 +183,23 @@ export function bindPlayers(
       owner.set(life, best.xuid);
       byXuid.get(best.xuid)?.push(life);
     }
+  }
+
+  const missingPlayers = [
+    ...new Set(players.map((player) => player.xuid)),
+  ].filter((xuid) => !byXuid.has(xuid));
+  const unassigned = lives.filter((life) => !owner.has(life));
+  if (
+    missingPlayers.length === 1 &&
+    unassigned.length === 1 &&
+    byXuid.size > 0 &&
+    players.every(
+      (player) =>
+        player.xuid === missingPlayers[0] ||
+        byXuid.get(player.xuid)?.some((life) => overlaps(life, unassigned[0])),
+    )
+  ) {
+    byXuid.set(missingPlayers[0], [unassigned[0]]);
   }
 
   const actors: Actor[] = [...byXuid.entries()].map(([xuid, own], actor) => ({

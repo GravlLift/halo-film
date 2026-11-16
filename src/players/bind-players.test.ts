@@ -23,6 +23,88 @@ const death = (xuid: string, timeMs: number): HighlightEvent => ({
   medalType: 0,
 });
 
+test('uses roster gamertags before highlights are available', () => {
+  const owners = {
+    roster: [{ playerIndex: 2, xuid: 'a', gamertag: 'Spartan' }],
+    creations: [{ timeMs: 0, slot: 1, generation: 1, participantIndex: 2 }],
+  };
+  const tracks = [track(1, 0, 10_000)];
+  assert.equal(
+    bindPlayers(tracks, [], [], owners).actors[0].gamertag,
+    'Spartan',
+  );
+  assert.equal(
+    bindPlayers(tracks, [], [{ xuid: 'a', gamertag: 'Updated' }], owners)
+      .actors[0].gamertag,
+    'Updated',
+  );
+});
+
+test('binds the only unassigned overlapping life to the only missing player', () => {
+  const tracks = [
+    track(1, 0, 10_000),
+    track(2, 0, 10_000),
+    track(3, 500, 10_000),
+  ];
+  const players = [
+    { xuid: 'a', team: 0 },
+    { xuid: 'b', team: 1 },
+    { xuid: 'c', gamertag: 'Missing Player', team: 1 },
+  ];
+  const owners = {
+    roster: [
+      { playerIndex: 0, xuid: 'a' },
+      { playerIndex: 1, xuid: 'b' },
+    ],
+    creations: [
+      { timeMs: 0, slot: 1, generation: 1, participantIndex: 0 },
+      { timeMs: 0, slot: 2, generation: 1, participantIndex: 1 },
+    ],
+  };
+  const result = bindPlayers(tracks, [], players, owners);
+  const missing = result.actors.find((player) => player.xuid === 'c');
+  assert.equal(missing?.gamertag, 'Missing Player');
+  assert.equal(missing?.team, 1);
+  assert.deepEqual(
+    missing?.lives.map((life) => life.slot),
+    [3],
+  );
+});
+
+test('does not guess when multiple unassigned lives or players remain', () => {
+  const owners = {
+    roster: [
+      { playerIndex: 0, xuid: 'a' },
+      { playerIndex: 1, xuid: 'b' },
+    ],
+    creations: [
+      { timeMs: 0, slot: 1, generation: 1, participantIndex: 0 },
+      { timeMs: 0, slot: 2, generation: 1, participantIndex: 1 },
+    ],
+  };
+  const tracks = [
+    track(1, 0, 10_000),
+    track(2, 0, 10_000),
+    track(3, 0, 10_000),
+  ];
+  const players = [{ xuid: 'a' }, { xuid: 'b' }, { xuid: 'c' }];
+  assert.equal(
+    bindPlayers(
+      [...tracks, track(4, 0, 10_000)],
+      [],
+      players,
+      owners,
+    ).actors.some((actor) => actor.xuid === 'c'),
+    false,
+  );
+  assert.equal(
+    bindPlayers(tracks, [], [...players, { xuid: 'd' }], owners).actors.some(
+      (actor) => actor.xuid === 'c' || actor.xuid === 'd',
+    ),
+    false,
+  );
+});
+
 test('ignores a spurious roster entry sharing a known player index', () => {
   const tracks = [track(1, 0, 10_000)];
   const owners = {

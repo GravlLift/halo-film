@@ -9,7 +9,6 @@ import {
 } from './keyframe-positions';
 import { seedInitialKeyframe, type PositionSample } from './positions';
 import type { I0Layout } from '../core/i0-layout';
-import { createReplay } from '../timeline/replay';
 
 function bitsToBytes(bits: number[]): Uint8Array {
   const bytes = new Uint8Array(Math.ceil(bits.length / 8));
@@ -200,6 +199,45 @@ describe('seedInitialKeyframe', () => {
     });
   });
 
+  it('uses calibrated horizontal keyframe coordinates without vertical bounds', () => {
+    const tracks = newTracks();
+    seedInitialKeyframe(tracks, keyframe, layout, undefined, owners, [], {
+      minX: 0,
+      maxX: 10,
+      minY: 0,
+      maxY: 10,
+    });
+    assert.deepEqual(tracks.get(512)?.[0], {
+      timeMs: 10000,
+      normalized: [0.2, 0.4, 0.6],
+      facingYawDeg: 45,
+      q: [819, 1638, 1228],
+    });
+  });
+
+  it('uses a nearby same-generation keyframe to locate the spawn', () => {
+    const tracks = newTracks();
+    seedInitialKeyframe(
+      tracks,
+      keyframe,
+      layout,
+      bounds,
+      {
+        ...owners,
+        creations: [
+          { timeMs: 9000, slot: 512, generation: 1, participantIndex: 2 },
+        ],
+      },
+      [],
+    );
+    const samples = tracks.get(512) ?? [];
+    assert.deepEqual(
+      samples.map((sample) => sample.timeMs),
+      [9000, 10000, 30000],
+    );
+    assert.deepEqual(samples[0].normalized, [0.2, 0.4, 0.6]);
+  });
+
   it('preserves facing separately from later aim updates', () => {
     const samples = newTracks().get(512) ?? [];
     samples.push({
@@ -210,27 +248,9 @@ describe('seedInitialKeyframe', () => {
     });
     const tracks = new Map([[512, samples]]);
     seedInitialKeyframe(tracks, keyframe, layout, bounds, owners, []);
-    const replay = createReplay({
-      layout,
-      flipRates: [],
-      tracks: [{ slot: 512, samples }],
-      actors: [
-        {
-          actor: 0,
-          lives: [
-            {
-              slot: 512,
-              startMs: 10000,
-              endMs: 31000,
-              sampleCount: samples.length,
-            },
-          ],
-        },
-      ],
-    });
-    assert.equal(replay.at(20000)[0].facingYawDeg, 45);
-    assert.equal(replay.at(20000)[0].aimYawDeg, undefined);
-    assert.equal(replay.at(31000)[0].aimYawDeg, 70);
+    assert.equal(tracks.get(512)?.[0].facingYawDeg, 45);
+    assert.equal(tracks.get(512)?.[0].aimYawDeg, undefined);
+    assert.equal(samples.at(-1)?.aimYawDeg, 70);
   });
 
   it('does not attach a prior generation or bridge a death', () => {

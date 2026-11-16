@@ -11,17 +11,85 @@ npm start -w match-downloader -- <matchId> [outputDir] [--force-download] [--for
 npm run typecheck -w match-downloader
 npm test -w @gravllift/halo-film                                # node:test via tsx
 npm run typecheck -w @gravllift/halo-film
+npm run test:film -w halo-query                               # replay + parser interchangeability
 ```
 
-It writes `film.json` (players, registry, chunk/frame timeline) and `positions.json`
+The library has one runtime export: `parseFilm(chunks): Promise<FilmData>`.
+Each chunk is `{ index, chunkType, bytes: ArrayBuffer }`, matching the input of
+`parseFilm` from `@gravllift/libfilmshell-wasm`. Both libraries share the
+`FilmData` declaration in `src/film-data.ts` and return `Promise<FilmData>`.
+The WASM parser lazily loads and initializes its module on the first parse,
+sharing that initialization across subsequent and concurrent calls.
+
+`FilmData` is serializable and contains ticks (60 per second), players, lives,
+events, a scoreboard, and the other film collections. Rust's nested field names
+remain snake_case. Unsupported fields are empty or null, not inferred from API
+match stats. The TypeScript parser also supplies optional `records` containing
+decoder evidence used for richer replay inference; consumers must not require
+it. Its current highlight decoder uses the version-41 layout. The TypeScript
+clock is derived from packet timestamps; WASM also models simulation hitches.
+The two parsers do not yet have identical decoding coverage.
+
+Halo Query owns loading and replay projection in `packages/halo-query/lib/film`:
+
+```typescript
+import { parseFilm } from '@gravllift/halo-film';
+import { createMatchReplay, decodeFilmData } from './lib/film';
+
+const data = await parseFilm(chunks);
+const replay = createMatchReplay(await decodeFilmData(data, match));
+```
+
+Use the WASM module's `parseFilm(chunks)` in the same example to switch parsers.
+The replay component accepts `parserBackend="typescript"` (default) or `"wasm"`;
+its worker uses the selected parser. `loadFilm` also accepts an injected
+`parser` implementing the shared `FilmParser` interface. Downloads, API team and
+score enrichment, interpolation, map presentation, and cancellation belong to
+Halo Query rather than the parser library.
+
+Halo Query's `loadFilm` optionally accepts `onReplay(replay, complete)` to publish playable
+snapshots as an ordered prefix of chunks is downloaded. Each snapshot's `endMs`
+is the loaded gameplay boundary, so playback should wait there until another
+snapshot arrives. The first chunk can be registry data or contain only staging
+tracks, so a replay may require additional gameplay chunks. Player identities,
+scores, and other inferred data may change as later chunks arrive; the final
+snapshot and the returned replay use the complete film. Pass `signal` to stop
+downloading and parsing when a replay is no longer needed.
+
+The highlights chunk is fetched with the initial gameplay data when available.
+WASM requires contiguous chunks, so its partial parses omit prefetched highlights
+until the complete film is available.
+The first snapshot waits for actor positions, and `firstSpawnMs` identifies the
+initial spawn wave without changing the seekable film start. When a matching
+keyframe is within five seconds of a creation, its position estimates the
+spawn location; without vertical calibration, elevation comes from the first
+position update. The partial kill feed is limited to loaded gameplay. If the
+film has no highlights, it uses provisional gameplay kill events instead.
+
+For seeking, `getPriorityTime` can return the latest requested film time. The
+loader fetches that gameplay chunk ahead of other pending chunks, then downloads
+and processes its missing prefix before publishing a snapshot that covers the
+request. Already-running fetches and parsing stages are not interrupted.
+
+`loadFilm` also accepts a `decode` override. Halo Query uses it to run
+`decodeReplay` in a dedicated worker and constructs the callable replay on the
+main thread from the structured-cloneable result. The worker keeps previously
+sent chunks for subsequent snapshots and is terminated when loading stops.
+
+The downloader writes `film.json` (`FilmData`) and `positions.json`
 (`layout`, `flipRates`, `tracks` per biped slot, `actors`). `films/` is gitignored.
+With `--packets`, it additionally writes `film-inspection.json` containing the
+registry and per-chunk/per-packet diagnostics. Existing cached `film.json` files
+can be migrated by rerunning the downloader with `--force-parse`.
 Sample matches: `5a997c10-5ff3-42bf-99ca-e81bce97ef10` (8 players, use this one) and
 `26d45816-3c2b-41ae-84b5-9e0cc1d1c096` (9 roster entries, one is likely an observer).
 
 ## Layout
 
-- `libs/halo-film` (`@gravllift/halo-film`): the core data package. Public entry points are `loadFilm` (spectate + match stats + an injected `fetchChunk` in, `MatchReplay` out) and `buildReplay` (same, from chunks already downloaded). `MatchReplay` carries the timeline plus static map data (`map.objectives`, `map.background`, where `background.image` is a file name the renderer resolves). Lower-level entry points `parseFilm`, `extractFilmPositions` and `readHighlightEvents` take in-memory chunks (`FilmChunkInput`, sync or async iterable) and `FilmMetadata`. It does no I/O itself and uses `node:zlib`/`Buffer`, so it is Node-only (bundlers polyfill).
-- `packages/halo-query/components/replay`: one renderer of a `MatchReplay` (canvas minimap and player cards).
+- `libs/halo-film` (`@gravllift/halo-film`): chunk decoding with a single runtime entry point, `parseFilm`, and shared data types. It performs no I/O and uses `fflate` in browsers and Node.
+- `libs/halo-filmshell-wasm`: WASM initialization and the Rust implementation of the same parsing contract.
+- `packages/halo-query/lib/film`: chunk loading, `FilmData` projection, API enrichment, and callable replay timelines. `MatchReplay` contains static map metadata as well as interpolated playback.
+- `packages/halo-query/components/replay`: rendering, playback controls, and the decoding worker.
 - `packages/match-downloader`: downloading, manifest/chunk files (`src/film-files.ts` `openFilmDirectory`) and `src/ensure-film.ts` (download-if-missing, parse-if-stale) behind `index.mts`.
 
 ## Code map (`libs/halo-film/src/`)
@@ -37,12 +105,14 @@ Sample matches: `5a997c10-5ff3-42bf-99ca-e81bce97ef10` (8 players, use this one)
 | `core/i0-layout.ts`     | detects position-block axis widths from bit flip-rate sawtooth                                          |
 | `decoders/positions.ts` | `extractPositions` / `extractFilmPositions` (tracks + actors)                                           |
 | `players/link-lives.ts` | `linkLives`: chains lives (slots) into anonymous actors                                                 |
-| `film.test.ts`          | tests (bit reader, packets, roster, link-lives, slots, integration on sample film)                      |
+| `film-data.ts`          | shared parser input/output contract and optional decoder records                                        |
+| `parse-film.test.ts`    | public parser contract tests                                                                            |
 
 Folders: `core/` (bit reader, packets, registry, record and layout primitives), `decoders/` (per-packet decoders:
 positions, damage, fire, stat records, inventories, projectiles, world objects, roster, highlights), `players/`
-(binding lives to players) and `timeline/` (derived state: score, zones, hills, flags, player stats, `replay`).
-Entry points stay at the top level.
+(binding lives to players). Derived timelines and replay integration tests now
+live under `packages/halo-query/lib/film`. Packet inspection lives in
+`packages/match-downloader/src/inspect-film.ts`.
 
 ## Format facts (verified)
 

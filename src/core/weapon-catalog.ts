@@ -10,6 +10,7 @@ const FAMILIES: [string, string][] = [
   ['9d6aaed2', 'Fuel Rod SPNKr'],
   ['841ac5e5', 'Gravity Hammer'],
   ['2ac9c2ff', 'Heatwave'],
+  ['5ac6cfb2', 'Heatwave'],
   ['71ab0a2c', 'M41 SPNKr'],
   ['2fb21c87', 'M392 Bandit'],
   ['6acdc44d', 'Bandit Evo'],
@@ -45,6 +46,17 @@ export const WEAPON_FAMILY_NAMES: ReadonlyMap<number, string> = new Map(
 );
 
 export const GRENADE_NAMES = ['Frag', 'Plasma', 'Dynamo', 'Spike'] as const;
+
+export const EQUIPMENT_TAG_NAMES: ReadonlyMap<number, string> = new Map([
+  [0x430dda48, 'Thruster'],
+  [0x4396db42, 'Shroud Screen'],
+  [0x4eebcb18, 'Shroud Screen'],
+  [0x730dc70f, 'Quantum Translocator'],
+  [0x7ca85adc, 'Repulsor'],
+  [0x8c77ffe7, 'Grappleshot'],
+  [0x098a49d5, 'Drop Wall'],
+  [0xe7be9f5c, 'Active Camo'],
+]);
 
 const GRENADE_FAMILY_NAMES = new Set([
   'Frag Grenade',

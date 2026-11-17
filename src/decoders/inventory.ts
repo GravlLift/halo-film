@@ -50,6 +50,8 @@ export interface InventorySnapshot {
   selectedGrenade?: number;
   /** Equipment rank (16..23 only; the rest needs delta packets). */
   abilityRank?: number;
+  equipment?: string;
+  ammoKnown?: boolean;
 }
 
 function parseAmmoBlock(

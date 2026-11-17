@@ -17,6 +17,7 @@ export interface FilmChunkInput {
   index: number;
   chunkType: number;
   bytes: ArrayBuffer;
+  fileRelativePath: string;
 }
 
 export type JsonValue =

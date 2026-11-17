@@ -110,13 +110,16 @@ export async function parseFilm(inputs: FilmChunkInput[]): Promise<FilmData> {
   }
   const chunks: DecoderChunk[] = [...inputs]
     .sort((first, second) => first.index - second.index)
-    .map((chunk) => ({
-      index: chunk.index,
-      chunkType: chunk.chunkType,
-      startTimeOffsetMs: 0,
-      durationMs: 0,
-      data: new Uint8Array(chunk.bytes),
-    }));
+    .map(
+      (chunk): DecoderChunk => ({
+        index: chunk.index,
+        chunkType: chunk.chunkType,
+        startTimeOffsetMs: 0,
+        durationMs: 0,
+        data: new Uint8Array(chunk.bytes),
+        fileRelativePath: chunk.fileRelativePath,
+      }),
+    );
   const registry = chunks.find((chunk) => chunk.chunkType === 1);
   const header = readHeader(
     registry ? inflateChunk(registry.data) : new Uint8Array(),
